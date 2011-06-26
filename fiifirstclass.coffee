@@ -20,6 +20,7 @@ Bgraph = (options) ->
     path = []
     rowHeight = h / hv
     columnWidth = w / wv
+
     xRound = Math.round x
     txt2           =
       font         : '11px Helvetica, Arial'
@@ -88,15 +89,15 @@ Bgraph = (options) ->
     x2: p2x + dx2
     y2: p2y + dy2
 
-  drawlabels = (leftgutter, X) ->
+  drawlabels = (leftgutter, X, labelStart = 0) ->
     txt2           =
       font         : '11px Helvetica, Arial'
       fill         : "#666"
     yPos = height - 25
 
-    for i in [0...range]
-      x = Math.round leftgutter + X * (i + .5)
-      (r.text x, yPos, xlabels[i]).attr(txt2).toBack().rotate 90
+    for i in [labelStart...range + labelStart]
+      xPos = Math.round leftgutter + X * (i + .5)
+      (r.text xPos, yPos, xlabels[i - labelStart]).attr(txt2).toBack().rotate 90
 
   drawCandlestick =  (dataItem, Y, x, y) ->
     o = +dataItem.o || 0
@@ -128,11 +129,14 @@ Bgraph = (options) ->
 
     if not validColor.test color then color = "#cc0000"
 
-    range = xlabels.length
+    range = gridRange = xlabels.length
     if typeof data[0] is "object" and type is "c"
       type = "c"
+      gridRange = range + 2
+      xStart = 1
     else if typeof data[0] is "number"
       type = "l"
+      xStart = 0
 
     label          =     r.set()
     label_visible  =     false
@@ -146,7 +150,7 @@ Bgraph = (options) ->
       font         : '10px Helvetica, Arial'
       fill         : "#666"
 
-    X = (width - leftgutter) / range
+    X = (width - leftgutter) / gridRange
 
     yRange = getYRange()
     if yRange?
@@ -163,8 +167,8 @@ Bgraph = (options) ->
 
     Y = (height - bottomgutter - topgutter) / (max - min)
 
-    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, 23, 8, gridcolor, yRange
-    drawlabels leftgutter, X
+    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, gridcolor, yRange
+    drawlabels leftgutter, X, xStart
     #drawCandlestick {o: 74, c: 74.6, l:73.8, h:74.8}, 70, 48, 237
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
@@ -272,5 +276,4 @@ jQuery ->
 
       true
     failure: (response) ->
-      false
 
