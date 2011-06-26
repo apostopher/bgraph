@@ -168,8 +168,7 @@ Bgraph = (options) ->
           dot.attr "r", 4
           leave_timer = setTimeout ->
                       frame.hide()
-                      label[0].hide()
-                      label[1].hide()
+                      label.hide()
                       label_visible = false
                     , 1
       ) x, y, data[i], xlabels[i], dot
