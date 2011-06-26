@@ -1,7 +1,9 @@
 Bgraph = (options) ->
-  data     =     []
-  xlabels  =     []
-  range    =     0
+  data        =     []
+  xlabels     =     []
+  range       =     0
+  type        =     "l"
+  columnWidth =     0
 
   {width, height, holder, leftgutter, topgutter, bottomgutter} = options
 
@@ -37,8 +39,17 @@ Bgraph = (options) ->
 
   getYRange = (steps = 8) ->
 
-    max = Math.max data...
-    min = Math.min data...
+    if typeof data[0] is "object"
+      if type is "c"
+        max = Math.max _.map data, (dataItem) -> +dataItem.h || 0
+        min = Math.min _.map data, (dataItem) -> +dataItem.l || 0
+      else
+        closeData = _.map data, (dataItem) -> +dataItem.c || 0
+        max = Math.max closeData...
+        min = Math.min closeData...
+    else
+      max = Math.max data...
+      min = Math.min data...
 
     datarange = max - min
     tempStep = datarange / (steps - 2)
@@ -87,18 +98,39 @@ Bgraph = (options) ->
       x = Math.round leftgutter + X * (i + .5)
       (r.text x, yPos, xlabels[i]).attr(txt2).toBack().rotate 90
 
+  drawCandlestick =  (dataItem, Y, x, y) ->
+    o = +dataItem.o || 0
+    h = +dataItem.h || 0
+    l = +dataItem.l || 0
+    c = +dataItem.c || 0
+    if c > o then candleType = 1 else candleType = 0
+
+    candleWidth = columnWidth / 2
+    candleHeight = Y * (Math.abs c - o)
+    candle = r.set()
+
+    stickPath = []
+    stickPath = ["M", x, y, "V", y + (h - l)*Y]
+    candle.push (r.path stickPath.join ",").attr(stroke: "#000").toBack()
+    candleX = x - candleWidth / 2
+    if candleType is 1
+      candleY = y + (h-c) * Y
+      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: "#000", fill: "#fff"
+    else
+      candleY = y + (h-o) * Y
+      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: "#000", fill: "#000"
+    true
   draw = (options) ->
     validColor     =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
     gridcolor      =     "#DFDFDF"
-    type           =     "l"
 
-    {color, data, xlabels, xtext, ytext} = options
+    {color, data, xlabels, xtext, ytext, type} = options
 
     if not validColor.test color then color = "#cc0000"
 
     range = xlabels.length
-    if typeof data[0] is "object"
-      type = "lc"
+    if typeof data[0] is "object" and type is "c"
+      type = "c"
     else if typeof data[0] is "number"
       type = "l"
 
@@ -133,7 +165,7 @@ Bgraph = (options) ->
 
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, 23, 8, gridcolor, yRange
     drawlabels leftgutter, X
-
+    #drawCandlestick {o: 74, c: 74.6, l:73.8, h:74.8}, 70, 48, 237
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
     for i in [0...range]
