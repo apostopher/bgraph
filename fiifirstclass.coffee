@@ -4,19 +4,21 @@ Bgraph = (options) ->
   range       =     0
   type        =     "l"
   columnWidth =     0
+  validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
 
-  {width, height, holder, leftgutter, topgutter, bottomgutter} = options
+  {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
   if not (+leftgutter >= 0) then leftgutter = 30
   if not (+topgutter >= 0) then topgutter = 20
   if not (+bottomgutter >= 0) then bottomgutter = 50
+  if not validColor.test gridColor then gridColor = "#DFDFDF"
 
   r = Raphael holder, width, height
 
   toString = ->
     "You are using Bgraph version 0.1."
 
-  drawGrid = (x, y, w, h, wv, hv, color = "#eee", yValues) ->
+  drawGrid = (x, y, w, h, wv, hv, yValues) ->
     path = []
     rowHeight = h / hv
     columnWidth = w / wv
@@ -36,24 +38,27 @@ Bgraph = (options) ->
       path = path.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5]
 
     path = path.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
-    (r.path path.join ",").attr stroke: color
+    (r.path path.join ",").attr stroke: gridColor
 
   getYRange = (steps = 8) ->
-
+    stepOffset = 2
     if typeof data[0] is "object"
       if type is "c"
-        max = Math.max _.map data, (dataItem) -> +dataItem.h || 0
-        min = Math.min _.map data, (dataItem) -> +dataItem.l || 0
+        maxArray = _.map data, (dataItem) -> +dataItem.h || 0
+        minArray = _.map data, (dataItem) -> +dataItem.l || 0
+        max = Math.max maxArray...
+        min = Math.min minArray...
+        stepOffset = 0
       else
-        closeData = _.map data, (dataItem) -> +dataItem.c || 0
-        max = Math.max closeData...
-        min = Math.min closeData...
+        closeArray = _.map data, (dataItem) -> +dataItem.c || 0
+        max = Math.max closeArray...
+        min = Math.min closeArray...
     else
       max = Math.max data...
       min = Math.min data...
 
     datarange = max - min
-    tempStep = datarange / (steps - 2)
+    tempStep = datarange / (steps - stepOffset)
     if 0.1 < tempStep <= 1
       base = 0.1
     else if 1 < tempStep < 10
@@ -65,7 +70,7 @@ Bgraph = (options) ->
 
     step = tempStep + base - tempStep % base
     stepRange = step * steps
-    rangeGutter = stepRange - datarange - step
+    rangeGutter = stepRange - datarange - step * stepOffset / 2
     startPoint = min - rangeGutter + base - (min - rangeGutter) % base
     endPoint = startPoint + stepRange
 
@@ -99,41 +104,42 @@ Bgraph = (options) ->
       xPos = Math.round leftgutter + X * (i + .5)
       (r.text xPos, yPos, xlabels[i - labelStart]).attr(txt2).toBack().rotate 90
 
-  drawCandlestick =  (dataItem, Y, x, y) ->
+  drawCandlestick =  (dataItem, Y, x, y, color = "#000") ->
     o = +dataItem.o || 0
     h = +dataItem.h || 0
     l = +dataItem.l || 0
     c = +dataItem.c || 0
     if c > o then candleType = 1 else candleType = 0
 
-    candleWidth = columnWidth / 2
+    candleWidth = columnWidth / 2 - 4
     candleHeight = Y * (Math.abs c - o)
     candle = r.set()
 
     stickPath = []
     stickPath = ["M", x, y, "V", y + (h - l)*Y]
-    candle.push (r.path stickPath.join ",").attr(stroke: "#000").toBack()
+    candle.push (r.path stickPath.join ",").attr stroke: color, "stroke-width": 2, "stroke-linejoin": "round"
     candleX = x - candleWidth / 2
     if candleType is 1
       candleY = y + (h-c) * Y
-      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: "#000", fill: "#fff"
+      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: color, fill: "#fff", "stroke-linejoin": "round"
     else
       candleY = y + (h-o) * Y
-      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: "#000", fill: "#000"
+      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: color, fill: color, "stroke-linejoin": "round"
     true
+
   draw = (options) ->
-    validColor     =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
-    gridcolor      =     "#DFDFDF"
-
     {color, data, xlabels, xtext, ytext, type} = options
-
-    if not validColor.test color then color = "#cc0000"
+    if not validColor.test color then color = "#000"
 
     range = gridRange = xlabels.length
-    if typeof data[0] is "object" and type is "c"
-      type = "c"
-      gridRange = range + 2
-      xStart = 1
+    if typeof data[0] is "object"
+      if type is "c"
+        gridRange = range + 2
+        xStart = 1
+      else
+        type = "l"
+        xStart = 0
+        data = _.map data, (dataItem) -> +dataItem.c || 0
     else if typeof data[0] is "number"
       type = "l"
       xStart = 0
@@ -167,113 +173,92 @@ Bgraph = (options) ->
 
     Y = (height - bottomgutter - topgutter) / (max - min)
 
-    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, gridcolor, yRange
+    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, yRange
     drawlabels leftgutter, X, xStart
-    #drawCandlestick {o: 74, c: 74.6, l:73.8, h:74.8}, 70, 48, 237
+
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
-    for i in [0...range]
-      y = height - bottomgutter - Y * (data[i] - min)
-      x = Math.round leftgutter + X * (i + .5)
+    if type is "l"
+      for i in [0...range]
+        y = height - bottomgutter - Y * (data[i] - min)
+        x = Math.round leftgutter + X * (i + .5)
 
-      p = ["M", x, y, "C", x, y] if not i
-      if i and i < range - 1
-        Y0 = height - bottomgutter - Y * (data[i - 1] - min)
-        X0 = Math.round leftgutter + X * (i - .5)
-        Y2 = height - bottomgutter - Y * (data[i + 1] - min)
-        X2 = Math.round leftgutter + X * (i + 1.5)
-        a = getAnchors X0, Y0, x, y, X2, Y2
-        p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
-      dot = r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
-      blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
-      rect = blanket[blanket.length - 1]
-      ((x, y, data, lbl, dot) =>
-        rect.hover =>
-          clearTimeout leave_timer
-          side = "right"
-          side = "left"  if x + frame.getBBox().width > width
-          label[0].attr(text: data + " " + ytext)
-          label[1].attr(text: lbl)
-          ppp = r.popup x, y, label, side, 1
-          frame.show().stop().animate {path: ppp.path}, 200 * label_visible
-          label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
+        p = ["M", x, y, "C", x, y] if not i
+        if i and i < range - 1
+          Y0 = height - bottomgutter - Y * (data[i - 1] - min)
+          X0 = Math.round leftgutter + X * (i - .5)
+          Y2 = height - bottomgutter - Y * (data[i + 1] - min)
+          X2 = Math.round leftgutter + X * (i + 1.5)
+          a = getAnchors X0, Y0, x, y, X2, Y2
+          p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
+        dot = r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
+        blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
+        rect = blanket[blanket.length - 1]
+        ((x, y, data, lbl, dot) =>
+          rect.hover =>
+            clearTimeout leave_timer
+            side = "right"
+            side = "left"  if x + frame.getBBox().width > width
+            label[0].attr(text: data + " " + ytext)
+            label[1].attr(text: lbl)
+            ppp = r.popup x, y, label, side, 1
+            frame.show().stop().animate {path: ppp.path}, 200 * label_visible
+            label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
 
-          dot.attr "r", 6
-          label_visible = true
-        ,=>
-          dot.attr "r", 4
-          leave_timer = setTimeout ->
-                      frame.hide()
-                      label.hide()
-                      label_visible = false
-                    , 1
-      ) x, y, data[i], xlabels[i], dot
+            dot.attr "r", 6
+            label_visible = true
+          ,=>
+            dot.attr "r", 4
+            leave_timer = setTimeout ->
+                        frame.hide()
+                        label.hide()
+                        label_visible = false
+                    ,   1
+        ) x, y, data[i], xlabels[i], dot
 
-    p = p.concat [x, y, x, y]
-    path.attr path: p
-    frame.toFront()
-    label[0].toFront()
-    label[1].toFront()
-    blanket.toFront()
+      p = p.concat [x, y, x, y]
+      path.attr path: p
+      frame.toFront()
+      label[0].toFront()
+      label[1].toFront()
+      blanket.toFront()
+    else
+      for i in [1...range + 1]
+        y = height - bottomgutter - Y * (data[i - 1].h - min)
+        x = Math.round leftgutter + X * (i + .5)
+        drawCandlestick data[i - 1], Y, x, y, color
 
   draw: draw, toString: toString
 
 jQuery ->
   $.ajax
     type: "GET"
-    url: "/serverscripts/fiidii.php"
+    url: "/serverscripts/candleTCS.php"
     dataType: "json"
     success: (response) ->
       dates   =   []
       data    =   []
-      fiidata =   []
-      diidata =   []
       for own key, val of response.data
         if key < 24
           dates.unshift val.date
-          data.unshift +val.value
-          fiidata.unshift +val.fii
-          diidata.unshift +val.dii
+          data.unshift  o: +val.o, h: +val.h, l: +val.l, c: +val.c
         else
           break
 
-      configfiidii = holder: "fiidiiholder", width: 892, height: 350
-      configfii = holder: "fiiholder", width: 892, height: 350
-      configdii = holder: "diiholder", width: 892, height: 350
+      configfiidii = holder: "fiidiiholder", width: 892, height: 550
 
       fiidiigraph = Bgraph configfiidii
-      fiigraph = Bgraph configfii
-      diigraph = Bgraph configdii
 
       fiidiioptions =
         # color: "#586C72"
-        color     :  "#B22222"
+        #color     :  "#B22222"
         data      :  data
         xlabels   :  dates
         xtext     :  "dates"
-        ytext     :  "thousand crores"
-
-      fiioptions =
-        # color: "#586C72"
-        color     :  "#B22222"
-        data      :  fiidata
-        xlabels   :  dates
-        xtext     :  "dates"
-        ytext     :  "thousand crores"
-
-      diioptions =
-        # color: "#586C72"
-        color     :  "#B22222"
-        data      :  diidata
-        xlabels   :  dates
-        xtext     :  "dates"
-        ytext     :  "thousand crores"
-
+        ytext     :  "Rs."
+        type      :  "c"
 
       fiidiigraph.draw(fiidiioptions)
-      fiigraph.draw(fiioptions)
-      diigraph.draw(diioptions)
-
       true
     failure: (response) ->
 
