@@ -25,7 +25,11 @@ Bgraph = (options) ->
       "text-anchor": "start"
 
     for i in [0..hv]
-      (r.text xRound - 25, Math.round(y + i * rowHeight) + .5, yValues.endPoint - (i * yValues.step)).attr(txt2).toBack()
+      yStep = (yValues.endPoint - (i * yValues.step)).toFixed 1
+      yLabel = r.text xRound, Math.round(y + i * rowHeight) + .5, yStep
+      yWidth = yWidth || yLabel.getBBox().width
+      txt2.x || txt2.x = xRound - yWidth - 8
+      yLabel.attr(txt2).toBack()
       path = path.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5]
 
     path = path.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
@@ -108,7 +112,7 @@ Bgraph = (options) ->
       fill         : color
     txt1           =
       font         : '10px Helvetica, Arial'
-      fill         : color
+      fill         : "#666"
 
     X = (width - leftgutter) / range
 
@@ -120,7 +124,7 @@ Bgraph = (options) ->
       return
 
     label.push (r.text 60, 12, max + " " + ytext).attr txt
-    label.push (r.text 60, 27, xtext).attr(txt1).attr fill: "#666"
+    label.push (r.text 60, 27, xtext).attr(txt1)
     label.hide()
 
     frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 2, "fill-opacity": 1).hide()
@@ -152,10 +156,12 @@ Bgraph = (options) ->
           clearTimeout leave_timer
           side = "right"
           side = "left"  if x + frame.getBBox().width > width
+          label[0].attr(text: data + " " + ytext)
+          label[1].attr(text: lbl)
           ppp = r.popup x, y, label, side, 1
           frame.show().stop().animate {path: ppp.path}, 200 * label_visible
-          label[0].attr(text: data + " " + ytext).show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
-          label[1].attr(text: lbl).show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
+          label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
+
           dot.attr "r", 6
           label_visible = true
         ,=>
@@ -174,6 +180,7 @@ Bgraph = (options) ->
     label[0].toFront()
     label[1].toFront()
     blanket.toFront()
+
   draw: draw, toString: toString
 
 jQuery ->
@@ -184,21 +191,26 @@ jQuery ->
     success: (response) ->
       dates   =   []
       data    =   []
+      fiidata =   []
+      diidata =   []
       for own key, val of response.data
         if key < 24
           dates.unshift val.date
           data.unshift +val.value
+          fiidata.unshift +val.fii
+          diidata.unshift +val.dii
         else
           break
 
-      config =
-        holder    :  "holder"
-        width     :  892
-        height    :  350
+      configfiidii = holder: "fiidiiholder", width: 892, height: 350
+      configfii = holder: "fiiholder", width: 892, height: 350
+      configdii = holder: "diiholder", width: 892, height: 350
 
-      fiigraph = Bgraph config
+      fiidiigraph = Bgraph configfiidii
+      fiigraph = Bgraph configfii
+      diigraph = Bgraph configdii
 
-      options =
+      fiidiioptions =
         # color: "#586C72"
         color     :  "#B22222"
         data      :  data
@@ -206,7 +218,27 @@ jQuery ->
         xtext     :  "dates"
         ytext     :  "thousand crores"
 
-      fiigraph.draw(options)
+      fiioptions =
+        # color: "#586C72"
+        color     :  "#B22222"
+        data      :  fiidata
+        xlabels   :  dates
+        xtext     :  "dates"
+        ytext     :  "thousand crores"
+
+      diioptions =
+        # color: "#586C72"
+        color     :  "#B22222"
+        data      :  diidata
+        xlabels   :  dates
+        xtext     :  "dates"
+        ytext     :  "thousand crores"
+
+
+      fiidiigraph.draw(fiidiioptions)
+      fiigraph.draw(fiioptions)
+      diigraph.draw(diioptions)
+
       true
     failure: (response) ->
       false
