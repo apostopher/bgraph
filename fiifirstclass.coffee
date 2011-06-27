@@ -16,7 +16,7 @@ Bgraph = (options) ->
   r = Raphael holder, width, height
 
   toString = ->
-    "You are using Bgraph version 0.1."
+    "You are using Bgraph version 0.2."
 
   drawGrid = (x, y, w, h, wv, hv, yValues) ->
     path = []
@@ -115,7 +115,7 @@ Bgraph = (options) ->
     else
       candleY = Math.round y + (h-o) * Y
       candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
-    true
+    Math.round candleY + candleHeight / 2
 
   draw = (options) ->
     {color, data, xlabels, xtext, ytext, type} = options
@@ -158,12 +158,6 @@ Bgraph = (options) ->
     else
       return
 
-    label.push (r.text 60, 12, max + " " + ytext).attr txt
-    label.push (r.text 60, 27, xtext).attr(txt1)
-    label.hide()
-
-    frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 2, "fill-opacity": 1).hide()
-
     Y = (height - bottomgutter - topgutter) / (max - min)
 
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, yRange
@@ -171,6 +165,11 @@ Bgraph = (options) ->
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
     if type is "l"
+      label.push (r.text 60, 12, max + " " + ytext).attr txt
+      label.push (r.text 60, 27, xtext).attr(txt1)
+      label.hide()
+      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 2, "fill-opacity": 1).hide()
+
       for i in [0...range]
         y = height - bottomgutter - Y * (data[i] - min)
         x = Math.round leftgutter + X * (i + .5)
@@ -190,10 +189,10 @@ Bgraph = (options) ->
         ((x, y, data, lbl, dot) =>
           rect.hover =>
             clearTimeout leave_timer
-            side = "right"
-            side = "left"  if x + frame.getBBox().width > width
             label[0].attr(text: data + " " + ytext)
             label[1].attr(text: lbl)
+            side = "right"
+            side = "left"  if x + frame.getBBox().width > width
             ppp = r.popup x, y, label, side, 1
             frame.show().stop().animate {path: ppp.path}, 200 * label_visible
             label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
@@ -216,11 +215,41 @@ Bgraph = (options) ->
       label[1].toFront()
       blanket.toFront()
     else
+      label.push (r.text 60, 12, max + " " + ytext).attr txt
+      label.push (r.text 60, 27, xtext).attr(txt1)
+      label.hide()
+      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 2, "fill-opacity": 1).hide()
+
       for i in [1...range + 1]
         y = height - bottomgutter - Y * (data[i - 1].h - min)
         x = Math.round leftgutter + X * (i + .5)
-        drawCandlestick data[i - 1], Y, x, y, color
         (r.text x, height - 25, xlabels[i - 1]).attr(txt2).toBack().rotate 90
+        candleMid = drawCandlestick data[i - 1], Y, x, y, color
+        blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
+        candle = blanket[blanket.length - 1]
+        ((x, y, data, lbl) =>
+          candle.hover =>
+            clearTimeout leave_timer
+            label[0].attr(text: data.c + " " + ytext)
+            label[1].attr(text: lbl)
+            side = "right"
+            side = "left"  if x + frame.getBBox().width > width
+            ppp = r.popup x, y, label, side, 1
+            frame.show().stop().animate {path: ppp.path}, 200 * label_visible
+            label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
+            label_visible = true
+          ,=>
+            leave_timer = setTimeout ->
+                        frame.hide()
+                        label.hide()
+                        label_visible = false
+                    ,   1
+        ) x, candleMid, data[i - 1], xlabels[i - 1]
+      frame.toFront()
+      label[0].toFront()
+      label[1].toFront()
+      blanket.toFront()
+
   draw: draw, toString: toString
 
 jQuery ->
