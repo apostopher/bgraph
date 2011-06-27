@@ -94,16 +94,6 @@ Bgraph = (options) ->
     x2: p2x + dx2
     y2: p2y + dy2
 
-  drawlabels = (leftgutter, X, labelStart = 0) ->
-    txt2           =
-      font         : '11px Helvetica, Arial'
-      fill         : "#666"
-    yPos = height - 25
-
-    for i in [labelStart...range + labelStart]
-      xPos = Math.round leftgutter + X * (i + .5)
-      (r.text xPos, yPos, xlabels[i - labelStart]).attr(txt2).toBack().rotate 90
-
   drawCandlestick =  (dataItem, Y, x, y, color = "#000") ->
     o = +dataItem.o || 0
     h = +dataItem.h || 0
@@ -111,20 +101,20 @@ Bgraph = (options) ->
     c = +dataItem.c || 0
     if c > o then candleType = 1 else candleType = 0
 
-    candleWidth = columnWidth / 2 - 4
-    candleHeight = Y * (Math.abs c - o)
+    candleWidth = Math.round columnWidth / 2 - 4
+    candleHeight = Math.round Y * (Math.abs c - o)
     candle = r.set()
 
     stickPath = []
-    stickPath = ["M", x, y, "V", y + (h - l)*Y]
-    candle.push (r.path stickPath.join ",").attr stroke: color, "stroke-width": 2, "stroke-linejoin": "round"
-    candleX = x - candleWidth / 2
+    stickPath = ["M", (Math.round x) + .5, (Math.round y) + .5, "V", Math.round y + (h - l) * Y]
+    candle.push (r.path stickPath.join ",").attr stroke: color, "stroke-width": 1, "stroke-linejoin": "round"
+    candleX = Math.round x - candleWidth / 2
     if candleType is 1
-      candleY = y + (h-c) * Y
-      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: color, fill: "#fff", "stroke-linejoin": "round"
+      candleY = Math.round y + (h-c) * Y
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#ddd-#fff:50-#ddd", "stroke-linejoin": "round"
     else
-      candleY = y + (h-o) * Y
-      candle.push (r.rect candleX, candleY, candleWidth, candleHeight).attr stroke: color, fill: color, "stroke-linejoin": "round"
+      candleY = Math.round y + (h-o) * Y
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
     true
 
   draw = (options) ->
@@ -155,6 +145,9 @@ Bgraph = (options) ->
     txt1           =
       font         : '10px Helvetica, Arial'
       fill         : "#666"
+    txt2           =
+      font         : '11px Helvetica, Arial'
+      fill         : "#666"
 
     X = (width - leftgutter) / gridRange
 
@@ -174,7 +167,6 @@ Bgraph = (options) ->
     Y = (height - bottomgutter - topgutter) / (max - min)
 
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, yRange
-    drawlabels leftgutter, X, xStart
 
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
@@ -192,6 +184,7 @@ Bgraph = (options) ->
           a = getAnchors X0, Y0, x, y, X2, Y2
           p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
         dot = r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
+        (r.text x, height - 25, xlabels[i]).attr(txt2).toBack().rotate 90
         blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         rect = blanket[blanket.length - 1]
         ((x, y, data, lbl, dot) =>
@@ -227,7 +220,7 @@ Bgraph = (options) ->
         y = height - bottomgutter - Y * (data[i - 1].h - min)
         x = Math.round leftgutter + X * (i + .5)
         drawCandlestick data[i - 1], Y, x, y, color
-
+        (r.text x, height - 25, xlabels[i - 1]).attr(txt2).toBack().rotate 90
   draw: draw, toString: toString
 
 jQuery ->
