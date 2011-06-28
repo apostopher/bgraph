@@ -40,24 +40,12 @@ Bgraph = (options) ->
     path = path.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
     (r.path path.join ",").attr stroke: gridColor
 
-  getYRange = (steps = 8) ->
+  getYRange = (steps = 8, minOrig, maxOrig) ->
     stepOffset = 2
-    if typeof data[0] is "object"
-      if type is "c"
-        maxArray = _.map data, (dataItem) -> +dataItem.h || 0
-        minArray = _.map data, (dataItem) -> +dataItem.l || 0
-        max = Math.max maxArray...
-        min = Math.min minArray...
-        stepOffset = 0
-      else
-        closeArray = _.map data, (dataItem) -> +dataItem.c || 0
-        max = Math.max closeArray...
-        min = Math.min closeArray...
-    else
-      max = Math.max data...
-      min = Math.min data...
+    if type is "c"
+      stepOffset = 0
 
-    datarange = max - min
+    datarange = maxOrig - minOrig
     tempStep = datarange / (steps - stepOffset)
     if 0.1 < tempStep <= 1
       base = 0.1
@@ -71,7 +59,7 @@ Bgraph = (options) ->
     step = tempStep + base - tempStep % base
     stepRange = step * steps
     rangeGutter = stepRange - datarange - step * stepOffset / 2
-    startPoint = min - rangeGutter + base - (min - rangeGutter) % base
+    startPoint = minOrig - rangeGutter + base - (minOrig - rangeGutter) % base
     endPoint = startPoint + stepRange
 
     {startPoint, endPoint,  step}
@@ -111,7 +99,7 @@ Bgraph = (options) ->
     candleX = Math.round x - candleWidth / 2
     if candleType is 1
       candleY = Math.round y + (h-c) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#ddd-#fff:50-#ddd", "stroke-linejoin": "round"
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#ddd-#f9f9f9:50-#ddd", "stroke-linejoin": "round"
     else
       candleY = Math.round y + (h-o) * Y
       candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
@@ -126,13 +114,21 @@ Bgraph = (options) ->
       if type is "c"
         gridRange = range + 2
         xStart = 1
+        maxArray = _.map data, (dataItem) -> +dataItem.h || 0
+        minArray = _.map data, (dataItem) -> +dataItem.l || 0
+        max = Math.max maxArray...
+        min = Math.min minArray...
       else
         type = "l"
         xStart = 0
         data = _.map data, (dataItem) -> +dataItem.c || 0
+        max = Math.max data...
+        min = Math.min data...
     else if typeof data[0] is "number"
       type = "l"
       xStart = 0
+      max = Math.max data...
+      min = Math.min data...
 
     label          =     r.set()
     label_visible  =     false
@@ -151,7 +147,7 @@ Bgraph = (options) ->
 
     X = (width - leftgutter) / gridRange
 
-    yRange = getYRange()
+    yRange = getYRange 8, min, max
     if yRange?
       max = yRange.endPoint
       min = yRange.startPoint
@@ -211,8 +207,7 @@ Bgraph = (options) ->
       p = p.concat [x, y, x, y]
       path.attr path: p
       frame.toFront()
-      label[0].toFront()
-      label[1].toFront()
+      label.toFront()
       blanket.toFront()
     else
       label.push (r.text 60, 12, max + " " + ytext).attr txt
@@ -233,7 +228,7 @@ Bgraph = (options) ->
             label[0].attr(text: data.c + " " + ytext)
             label[1].attr(text: lbl)
             side = "right"
-            side = "left"  if x + frame.getBBox().width > width
+            side = "left"  if x + frame.getBBox().width > width - leftgutter
             ppp = r.popup x, y, label, side, 1
             frame.show().stop().animate {path: ppp.path}, 200 * label_visible
             label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
@@ -246,8 +241,7 @@ Bgraph = (options) ->
                     ,   1
         ) x, candleMid, data[i - 1], xlabels[i - 1]
       frame.toFront()
-      label[0].toFront()
-      label[1].toFront()
+      label.toFront()
       blanket.toFront()
 
   draw: draw, toString: toString
