@@ -1,4 +1,5 @@
-Bgraph = (options) ->
+global = exports ? this
+global.bgraph = (options) ->
   data        =     []
   xlabels     =     []
   range       =     0
