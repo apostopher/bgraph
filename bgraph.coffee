@@ -1,7 +1,7 @@
 global = exports ? this
 global.bgraph = (options) ->
   data        =     []
-  xlabels     =     []
+  dates       =     []
   range       =     0
   type        =     "l"
   columnWidth =     0
@@ -109,10 +109,14 @@ global.bgraph = (options) ->
     Math.round candleY + candleHeight / 2
 
   draw = (options) ->
-    {color, data, xlabels, xtext, ytext, type} = options
-    if not validColor.test color then color = "#000"
+    {color, data, xtext, ytext, type} = options
+    rawDates = options.dates
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-    range = gridRange = xlabels.length
+    if not validColor.test color then color = "#000"
+    dates = _.map rawDates, (rawDate) -> new Date(rawDate)
+    range = gridRange = dates.length
+    xlabels = _.map dates, (date) -> do date.getDate + " - " + months[do date.getMonth]
     if typeof data[0] is "object"
       if type is "c"
         gridRange = range + 2
