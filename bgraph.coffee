@@ -5,6 +5,9 @@ global.bgraph = (options) ->
   range       =     0
   type        =     "l"
   columnWidth =     0
+  dataRange   =     0
+  currPos     =     0
+  prefWidth   =     36
   validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
 
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
@@ -48,8 +51,8 @@ global.bgraph = (options) ->
     if type is "c"
       stepOffset = 0
 
-    datarange = maxOrig - minOrig
-    tempStep = datarange / (steps - stepOffset)
+    dataYRange = maxOrig - minOrig
+    tempStep = dataYRange / (steps - stepOffset)
     if 0.1 < tempStep <= 1
       base = 0.1
     else if 1 < tempStep < 10
@@ -61,7 +64,7 @@ global.bgraph = (options) ->
 
     step = tempStep + base - tempStep % base
     stepRange = step * steps
-    rangeGutter = stepRange - datarange - step * stepOffset / 2
+    rangeGutter = stepRange - dataYRange - step * stepOffset / 2
     startPoint = minOrig - rangeGutter + base - (minOrig - rangeGutter) % base
     endPoint = startPoint + stepRange
 
@@ -114,28 +117,54 @@ global.bgraph = (options) ->
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
     if not validColor.test color then color = "#000"
+    # Accept dates as string and create date objects from it.
     dates = _.map rawDates, (rawDate) -> new Date(rawDate)
-    range = gridRange = dates.length
+    dataRange = data.length
+    # prefWidth is the width of column so that candles look good.
+    range = Math.round (width - leftgutter)/prefWidth
+    if range >= dataRange
+      range = dataRange
+    else
+      currPos = dataRange - range
+
+    gridRange = range
+    # Create X-Axis labels from date array
     xlabels = _.map dates, (date) -> do date.getDate + " - " + months[do date.getMonth]
+    # data can be plain numbers OR OHLC values.
     if typeof data[0] is "object"
       if type is "c"
         gridRange = range + 2
         xStart = 1
         maxArray = _.map data, (dataItem) -> +dataItem.h || 0
         minArray = _.map data, (dataItem) -> +dataItem.l || 0
-        max = Math.max maxArray...
-        min = Math.min minArray...
+        if currPos is 0
+          max = Math.max maxArray...
+          min = Math.min minArray...
+        else
+          max = Math.max maxArray[currPos...currPos + range]...
+          min = Math.min minArray[currPos...currPos + range]...
       else
         type = "l"
         xStart = 0
-        data = _.map data, (dataItem) -> +dataItem.c || 0
-        max = Math.max data...
-        min = Math.min data...
+        dataClose = _.map data, (dataItem) -> +dataItem.c || 0
+        if currPos is 0
+          max = Math.max dataClose...
+          min = Math.min dataClose...
+        else
+          max = Math.max dataClose[currPos...currPos + range]...
+          min = Math.min dataClose[currPos...currPos + range]...
     else if typeof data[0] is "number"
       type = "l"
       xStart = 0
-      max = Math.max data...
-      min = Math.min data...
+      if currPos is 0
+        max = Math.max data...
+        min = Math.min data...
+      else
+        max = Math.max data[currPos...currPos + range]...
+        min = Math.min data[currPos...currPos + range]...
+
+    # Clear the canvas for drawing
+    do r.clear
 
     label          =     r.set()
     label_visible  =     false
@@ -171,23 +200,23 @@ global.bgraph = (options) ->
       label.push (r.text 60, 12, max + " " + ytext).attr txt
       label.push (r.text 60, 27, xtext).attr(txt1)
       label.hide()
-      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 1, "fill-opacity": 0.95).hide()
+      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 1, "fill-opacity": 1).hide()
 
-      for i in [0...range]
+      for i in [currPos...currPos + range]
         y = height - bottomgutter - Y * (data[i] - min)
         x = Math.round leftgutter + X * (i + .5)
 
-        p = ["M", x, y, "C", x, y] if not i
-        if i and i < range - 1
+        p = ["M", x, y, "C", x, y] if i is currPos
+        if i isnt currPos and i < currPos + range - 1
           Y0 = height - bottomgutter - Y * (data[i - 1] - min)
-          X0 = Math.round leftgutter + X * (i - .5)
+          X0 = Math.round leftgutter + X * (i - currPos - .5)
           Y2 = height - bottomgutter - Y * (data[i + 1] - min)
-          X2 = Math.round leftgutter + X * (i + 1.5)
+          X2 = Math.round leftgutter + X * (i - currPos + 1.5)
           a = getAnchors X0, Y0, x, y, X2, Y2
           p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
         dot = r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
         (r.text x, height - 25, xlabels[i]).attr(txt2).toBack().rotate 90
-        blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
+        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         rect = blanket[blanket.length - 1]
         ((x, y, data, lbl, dot) =>
           rect.hover =>
@@ -220,14 +249,14 @@ global.bgraph = (options) ->
       label.push (r.text 60, 12, max + " " + ytext).attr txt
       label.push (r.text 60, 27, xtext).attr(txt1)
       label.hide()
-      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#000", "stroke-width": 1, "fill-opacity": .95).hide()
+      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#000", "stroke-width": 1, "fill-opacity": 1).hide()
 
-      for i in [1...range + 1]
+      for i in [currPos + 1...currPos + range + 1]
         y = height - bottomgutter - Y * (data[i - 1].h - min)
-        x = Math.round leftgutter + X * (i + .5)
+        x = Math.round leftgutter + X * (i - currPos + .5)
         (r.text x, height - 25, xlabels[i - 1]).attr(txt2).toBack().rotate 90
         candleMid = drawCandlestick data[i - 1], Y, x, y, color
-        blanket.push (r.rect leftgutter + X * i, 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
+        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         candle = blanket[blanket.length - 1]
         ((x, y, data, lbl) =>
           candle.hover =>
