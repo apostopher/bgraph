@@ -20,6 +20,7 @@ global.bgraph = (options) ->
   if not width? then width = do ($ "#" + holder).width
 
   r = Raphael holder, width, height
+  candelabra  =  do r.set
 
   toString = ->
     "You are using Bgraph version 0.2."
@@ -109,7 +110,8 @@ global.bgraph = (options) ->
     else
       candleY = Math.round y + (h-o) * Y
       candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
-    Math.round candleY + candleHeight / 2
+    candleMid: Math.round candleY + candleHeight / 2
+    candle: candle
 
   draw = (options) ->
     {color, data, xtext, ytext, type} = options
@@ -146,30 +148,31 @@ global.bgraph = (options) ->
       else
         type = "l"
         xStart = 0
-        dataClose = _.map data, (dataItem) -> +dataItem.c || 0
+        dataL = _.map data, (dataItem) -> +dataItem.c || 0
         if currPos is 0
-          max = Math.max dataClose...
-          min = Math.min dataClose...
+          max = Math.max dataL...
+          min = Math.min dataL...
         else
-          max = Math.max dataClose[currPos...currPos + range]...
-          min = Math.min dataClose[currPos...currPos + range]...
+          max = Math.max dataL[currPos...currPos + range]...
+          min = Math.min dataL[currPos...currPos + range]...
     else if typeof data[0] is "number"
       type = "l"
       xStart = 0
+      dataL = data
       if currPos is 0
-        max = Math.max data...
-        min = Math.min data...
+        max = Math.max dataL...
+        min = Math.min dataL...
       else
-        max = Math.max data[currPos...currPos + range]...
-        min = Math.min data[currPos...currPos + range]...
+        max = Math.max dataL[currPos...currPos + range]...
+        min = Math.min dataL[currPos...currPos + range]...
 
     # Clear the canvas for drawing
     do r.clear
 
-    label          =     r.set()
+    label          =     do r.set
     label_visible  =     false
     leave_timer    =     0
-    blanket        =     r.set()
+    blanket        =     do r.set
     p              =     []
     txt            =
       font         : '12px Helvetica, Arial', "font-weight": "bold"
@@ -203,14 +206,14 @@ global.bgraph = (options) ->
       frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 1, "fill-opacity": 1).hide()
 
       for i in [currPos...currPos + range]
-        y = height - bottomgutter - Y * (data[i] - min)
-        x = Math.round leftgutter + X * (i + .5)
+        y = height - bottomgutter - Y * (dataL[i] - min)
+        x = Math.round leftgutter + X * (i - currPos + .5)
 
         p = ["M", x, y, "C", x, y] if i is currPos
         if i isnt currPos and i < currPos + range - 1
-          Y0 = height - bottomgutter - Y * (data[i - 1] - min)
+          Y0 = height - bottomgutter - Y * (dataL[i - 1] - min)
           X0 = Math.round leftgutter + X * (i - currPos - .5)
-          Y2 = height - bottomgutter - Y * (data[i + 1] - min)
+          Y2 = height - bottomgutter - Y * (dataL[i + 1] - min)
           X2 = Math.round leftgutter + X * (i - currPos + 1.5)
           a = getAnchors X0, Y0, x, y, X2, Y2
           p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
@@ -238,7 +241,7 @@ global.bgraph = (options) ->
                         label.hide()
                         label_visible = false
                     ,   1
-        ) x, y, data[i], xlabels[i], dot
+        ) x, y, dataL[i], xlabels[i], dot
 
       p = p.concat [x, y, x, y]
       path.attr path: p
@@ -255,7 +258,9 @@ global.bgraph = (options) ->
         y = height - bottomgutter - Y * (data[i - 1].h - min)
         x = Math.round leftgutter + X * (i - currPos + .5)
         (r.text x, height - 25, xlabels[i - 1]).attr(txt2).toBack().rotate 90
-        candleMid = drawCandlestick data[i - 1], Y, x, y, color
+        candlestick = drawCandlestick data[i - 1], Y, x, y, color
+        candleMid = candlestick.candleMid
+        candelabra.push candlestick.candle
         blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         candle = blanket[blanket.length - 1]
         ((x, y, data, lbl) =>
