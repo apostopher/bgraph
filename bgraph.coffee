@@ -7,11 +7,18 @@ global.bgraph = (options) ->
   columnWidth =     0
   dataRange   =     0
   currPos     =     0
+  X           =     0
+  Y           =     0
   prefWidth   =     36
   validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
 
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
+  ### the following validation will work only when the value is a positive number.
+    +undefined = NaN, +"hello" = NaN
+    also NaN >= 0 is false and NaN < 0 is false too :)
+    probably NaN is in 4th dimention...
+  ###
   if not (+leftgutter >= 0) then leftgutter = 30
   if not (+topgutter >= 0) then topgutter = 20
   if not (+bottomgutter >= 0) then bottomgutter = 50
@@ -21,31 +28,38 @@ global.bgraph = (options) ->
 
   r = Raphael holder, width, height
   candelabra  =  do r.set
-
+  yLabels     =  do r.set
   toString = ->
     "You are using Bgraph version 0.2."
 
-  drawGrid = (x, y, w, h, wv, hv, yValues) ->
+  drawGrid = (x, y, w, h, wv, hv) ->
     path = []
     rowHeight = h / hv
     columnWidth = w / wv
 
     xRound = Math.round x
+
+    path = path.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5] for i in [0..hv]
+    path = path.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
+
+    (r.path path.join ",").attr stroke: gridColor
+
+  drawLabels = (x, y, h, hv, yValues) ->
     txt2           =
       font         : '11px Helvetica, Arial'
       fill         : "#666"
       "text-anchor": "start"
 
+    xRound = Math.round x
+    rowHeight = h / hv
+
     for i in [0..hv]
       yStep = (yValues.endPoint - (i * yValues.step)).toFixed 1
       yLabel = r.text xRound, Math.round(y + i * rowHeight) + .5, yStep
+      yLabels.push yLabel
       yWidth = yWidth || yLabel.getBBox().width
       txt2.x || txt2.x = xRound - yWidth - 8
       yLabel.attr(txt2).toBack()
-      path = path.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5]
-
-    path = path.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
-    (r.path path.join ",").attr stroke: gridColor
 
   getYRange = (steps = 8, minOrig, maxOrig) ->
     stepOffset = 2
@@ -98,6 +112,7 @@ global.bgraph = (options) ->
 
     candleWidth = Math.round columnWidth / 2 - 4
     candleHeight = Math.round Y * (Math.abs c - o)
+    if candleHeight is 0 then candleHeight = 1
     candle = r.set()
 
     stickPath = []
@@ -131,7 +146,7 @@ global.bgraph = (options) ->
 
     gridRange = range
     # Create X-Axis labels from date array
-    xlabels = _.map dates, (date) -> do date.getDate + " - " + months[do date.getMonth]
+    xlabels = _.map dates, (date) -> do date.getDate + "-" + months[do date.getMonth]
     # data can be plain numbers OR OHLC values.
     if typeof data[0] is "object"
       if type is "c"
@@ -148,6 +163,7 @@ global.bgraph = (options) ->
       else
         type = "l"
         xStart = 0
+        # line chart uses dataL as a source. not data.
         dataL = _.map data, (dataItem) -> +dataItem.c || 0
         if currPos is 0
           max = Math.max dataL...
@@ -158,6 +174,7 @@ global.bgraph = (options) ->
     else if typeof data[0] is "number"
       type = "l"
       xStart = 0
+      # line chart uses dataL as a source. not data.
       dataL = data
       if currPos is 0
         max = Math.max dataL...
@@ -195,7 +212,8 @@ global.bgraph = (options) ->
 
     Y = (height - bottomgutter - topgutter) / (max - min)
 
-    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8, yRange
+    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
+    drawLabels leftgutter + X * .5, topgutter + .5, height - topgutter - bottomgutter, 8, yRange
 
     path = r.path().attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
 
@@ -285,5 +303,20 @@ global.bgraph = (options) ->
       label.toFront()
       blanket.toFront()
 
-  draw: draw, toString: toString
+  prev = (dx) ->
+    if currPos is 0 then return
+    if not (+dx >= 0) then dx = 1
+
+    currPos = currPos - 1
+    if type is "l"
+      if typeof data[currPos] is "object" then prevData = data[currPos].c
+      if typeof data[currPos] is "number" then prevData = data[currPos]
+    if type is "c"
+      prevData = data[currPos]
+      delData = do candelabra.pop
+      do delData.remove
+      candelabra.translate X, 0
+      #y = height - bottomgutter - Y * (prevData.h - min)
+      #x = Math.round leftgutter + X * .5
+  {draw, prev, toString}
 
