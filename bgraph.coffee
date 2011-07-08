@@ -18,6 +18,19 @@ global.bgraph = (options) ->
   prefWidth   =     36
   validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
   color       =     "#000"
+  txt         =
+      font         : '12px Helvetica, Arial', "font-weight": "bold"
+      fill         : color
+  txt1        =
+      font         : '10px Helvetica, Arial'
+      fill         : "#666"
+  txt2        =
+      font         : '11px Helvetica, Arial'
+      fill         : "#666"
+  txtY        =
+      font         : '11px Helvetica, Arial'
+      fill         : "#666"
+      "text-anchor": "start"
 
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
@@ -32,14 +45,19 @@ global.bgraph = (options) ->
   if not validColor.test gridColor then gridColor = "#DFDFDF"
 
   if not width? then width = do ($ "#" + holder).width
-
+  ($ "#"+holder).html ""
   r = Raphael holder, width, height
   candelabra     =  do r.set
   yLabels        =  do r.set
   xlabels        =  []
   activeXLabels  = do r.set
   dots           = do r.set
-  linepath = do r.path
+  linepath       = do r.path
+  reSize = ->
+    newWidth = do ($ "#" + holder).width
+    newHeight = do ($ "#" + holder).height
+    r.setSize newWidth, newHeight
+    true
   toString = ->
     "You are using Bgraph version 0.2."
 
@@ -56,11 +74,6 @@ global.bgraph = (options) ->
     (r.path gridPath.join ",").attr stroke: gridColor
 
   drawLabels = (x, y, h, hv, yValues) ->
-    txt2           =
-      font         : '11px Helvetica, Arial'
-      fill         : "#666"
-      "text-anchor": "start"
-
     xRound = Math.round x
     rowHeight = h / hv
 
@@ -69,12 +82,12 @@ global.bgraph = (options) ->
       yLabel = r.text xRound, Math.round(y + i * rowHeight) + .5, yStep
       yLabels.push yLabel
       yWidth = yWidth || yLabel.getBBox().width
-      txt2.x || txt2.x = xRound - yWidth - 8
-      yLabel.attr(txt2).toBack()
+      txtY.x || txtY.x = xRound - yWidth - 5
+      yLabel.attr(txtY).toBack()
 
   getYRange = (steps = 8, minOrig, maxOrig) ->
     dataYRange = maxOrig - minOrig
-    tempStep = dataYRange / (steps - 2)
+    tempStep = dataYRange / (steps - 1)
     if 0.1 < tempStep <= 1
       base = 0.1
     else if 1 < tempStep < 10
@@ -87,7 +100,7 @@ global.bgraph = (options) ->
     base = base / 2 while tempStep % base <= base / 2
     step = tempStep + base - tempStep % base
     stepRange = step * steps
-    rangeGutter = stepRange - dataYRange - step
+    rangeGutter = stepRange - dataYRange - step / 2
     startPoint = minOrig - rangeGutter + base - (minOrig - rangeGutter) % base
     endPoint = startPoint + stepRange
 
@@ -125,14 +138,15 @@ global.bgraph = (options) ->
 
     stickPath = []
     stickPath = ["M", (Math.round x) + .5, (Math.round y) + .5, "V", Math.round y + (h - l) * Y]
-    candle.push (r.path stickPath.join ",").attr stroke: color, "stroke-width": 1, "stroke-linejoin": "round"
+    candle.push (r.path stickPath.join ",").attr stroke: "#000", "stroke-width": 1, "stroke-linejoin": "round"
     candleX = Math.round x - candleWidth / 2
     if candleType is 1
       candleY = Math.round y + (h-c) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#ddd-#f9f9f9:50-#ddd", "stroke-linejoin": "round"
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: "#000", fill: "0-#ddd-#f9f9f9:50-#ddd", "stroke-linejoin": "round"
     else
       candleY = Math.round y + (h-o) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: color, fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: "#000", fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
+
     candleMid: Math.round candleY + candleHeight / 2
     candle: candle
 
@@ -142,15 +156,6 @@ global.bgraph = (options) ->
     leave_timer    =     0
     blanket        =     do r.set
     p              =     []
-    txt            =
-      font         : '12px Helvetica, Arial', "font-weight": "bold"
-      fill         : color
-    txt1           =
-      font         : '10px Helvetica, Arial'
-      fill         : "#666"
-    txt2           =
-      font         : '11px Helvetica, Arial'
-      fill         : "#666"
 
     if typeof data[0] is "object"
       if type is "c"
@@ -190,8 +195,8 @@ global.bgraph = (options) ->
     if type is "l"
       linepath.attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
       label.push (r.text 60, 12, max + " " + ytext).attr txt
-      label.push (r.text 60, 27, xtext).attr(txt1)
-      label.hide()
+      label.push (r.text 60, 27, xtext).attr txt1
+      do label.hide
       frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 1, "fill-opacity": 1).hide()
 
       for i in [currPos...currPos + range]
@@ -227,23 +232,18 @@ global.bgraph = (options) ->
           ,=>
             dot.attr "r", 4
             leave_timer = setTimeout ->
-                        frame.hide()
-                        label.hide()
+                        do frame.hide
+                        do label.hide
                         label_visible = false
                     ,   1
         ) x, y, dataL[i], xlabels[i], dot
 
       p = p.concat [x, y, x, y]
       linepath.attr path: p
-      frame.toFront()
-      label.toFront()
-      blanket.toFront()
+      do frame.toFront
+      do label.toFront
+      do blanket.toFront
     else
-      label.push (r.text 60, 12, max + " " + ytext).attr txt
-      label.push (r.text 60, 27, xtext).attr(txt1)
-      label.hide()
-      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#000", "stroke-width": 1, "fill-opacity": 1).hide()
-
       for i in [currPos + 1...currPos + range + 1]
         y = height - bottomgutter - Y * (data[i - 1].h - min)
         x = Math.round leftgutter + X * (i - currPos + .5)
@@ -251,30 +251,8 @@ global.bgraph = (options) ->
         candlestick = drawCandlestick data[i - 1], Y, x, y, color
         candleMid = candlestick.candleMid
         candelabra.push candlestick.candle
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
-        candle = blanket[blanket.length - 1]
-        ((x, y, data, lbl) =>
-          candle.hover =>
-            clearTimeout leave_timer
-            label[0].attr(text: data.c + " " + ytext)
-            label[1].attr(text: lbl)
-            side = "right"
-            side = "left"  if x + frame.getBBox().width > width - leftgutter
-            ppp = r.popup x, y, label, side, 1
-            frame.show().stop().animate {path: ppp.path}, 200 * label_visible
-            label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
-            label_visible = true
-          ,=>
-            leave_timer = setTimeout ->
-                        frame.hide()
-                        label.hide()
-                        label_visible = false
-                    ,   1
-        ) x, candleMid, data[i - 1], xlabels[i - 1]
-      frame.toFront()
-      label.toFront()
-      blanket.toFront()
     true
+
   draw = (options) ->
     {color, data, xtext, ytext, type} = options
     rawDates = options.dates
@@ -310,7 +288,9 @@ global.bgraph = (options) ->
     if type is "c" then gridRange = range + 2
 
     # Clear the canvas for drawing
-    #do r.clear
+    do r.clear
+    linepath = do r.path
+
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
     do redraw
@@ -326,5 +306,5 @@ global.bgraph = (options) ->
     currPos = currPos + 1
     do redraw
 
-  {draw, prev, next, toString}
+  {draw, prev, next, toString, reSize}
 
