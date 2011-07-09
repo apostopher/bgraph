@@ -53,6 +53,7 @@ global.bgraph = (options) ->
   activeXLabels  = do r.set
   dots           = do r.set
   linepath       = do r.path
+  chartMsg       = do r.set
   reSize = ->
     newWidth = do ($ "#" + holder).width
     newHeight = do ($ "#" + holder).height
@@ -60,6 +61,15 @@ global.bgraph = (options) ->
     true
   toString = ->
     "You are using Bgraph version 0.2."
+
+  setMessage = (message) ->
+    txtErr      =
+      font         : '24px Helvetica, Arial'
+      fill         : "#999"
+
+    do chartMsg.remove
+    chartMsg.push (r.text width / 2, height / 2, message).attr txtErr
+    true
 
   drawGrid = (x, y, w, h, wv, hv) ->
     gridPath = []
@@ -255,6 +265,11 @@ global.bgraph = (options) ->
 
   draw = (options) ->
     {color, data, xtext, ytext, type} = options
+    dataRange = data.length
+    if dataRange is 0
+      setMessage "Symbol not found..."
+      return false
+
     rawDates = options.dates
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -271,7 +286,6 @@ global.bgraph = (options) ->
     if not validColor.test color then color = "#000"
     # Accept dates as string and create date objects from it.
     dates = _.map rawDates, (rawDate) -> new Date(rawDate)
-    dataRange = data.length
     # prefWidth is the width of column so that candles look good.
     range = Math.round (width - leftgutter)/prefWidth
     if range >= dataRange
@@ -294,6 +308,7 @@ global.bgraph = (options) ->
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
     do redraw
+    true
   prev = (dx) ->
     if currPos is 0 then return
     if not (+dx >= 0) then dx = 1
@@ -306,5 +321,5 @@ global.bgraph = (options) ->
     currPos = currPos + 1
     do redraw
 
-  {draw, prev, next, toString, reSize}
+  {draw, prev, next, toString, reSize, setMessage}
 
