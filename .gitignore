@@ -1,3 +1,4 @@
 *.js
 .sass-cache
 /lib
+compiler.jar
