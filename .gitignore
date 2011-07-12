@@ -1,5 +1,3 @@
 *.js
-fiidii
-fiidii/*
 .sass-cache
-script.coffee
+/lib
