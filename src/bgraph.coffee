@@ -72,8 +72,7 @@ global.bgraph = (options) ->
     msg = (r.text width / 2, height / 2, message).attr txtErr
     chartMsg.push msg
     msg.animate {opacity: 1}, 200
-
-    true
+    @
 
   drawGrid = (x, y, w, h, wv, hv) ->
     gridPath = []
@@ -329,18 +328,18 @@ global.bgraph = (options) ->
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
     do redraw
-    true
+    @
   prev = (dx) ->
     if currPos is 0 then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos - 1
     do redraw
-
+    @
   next = (dx) ->
     if currPos + range is data.length then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos + 1
     do redraw
-
+    @
   {draw, prev, next, toString, reSize, setMessage}
 
