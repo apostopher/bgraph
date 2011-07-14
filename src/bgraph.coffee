@@ -3,6 +3,7 @@ global.bgraph = (options) ->
   chartTypes  =     ["c", "l"]
   data        =     []
   dataL       =     []
+  xlabels     =     []
   maxArray    =     []
   minArray    =     []
   dates       =     []
@@ -19,18 +20,13 @@ global.bgraph = (options) ->
   validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
   color       =     "#000"
   txt         =
-      font         : '12px Helvetica, Arial', "font-weight": "bold"
-      fill         : color
-  txt1        =
-      font         : '10px Helvetica, Arial'
-      fill         : "#666"
-  txt2        =
       font         : '11px Helvetica, Arial'
       fill         : "#666"
   txtY        =
       font         : '11px Helvetica, Arial'
       fill         : "#666"
       "text-anchor": "start"
+  events           : {}
 
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
@@ -49,11 +45,11 @@ global.bgraph = (options) ->
   r = Raphael holder, width, height
   candelabra     =  do r.set
   yLabels        =  do r.set
-  xlabels        =  []
-  activeXLabels  = do r.set
-  dots           = do r.set
-  linepath       = do r.path
-  chartMsg       = do r.set
+  activeXLabels  =  do r.set
+  dots           =  do r.set
+  chartMsg       =  do r.set
+  blanket        =  do r.set
+  linepath       =  do r.path
   reSize = ->
     newWidth = do ($ "#" + holder).width
     newHeight = do ($ "#" + holder).height
@@ -73,7 +69,25 @@ global.bgraph = (options) ->
     chartMsg.push msg
     msg.animate {opacity: 1}, 200
     @
-
+  attachHover = (rect, index, overFn, outFn) ->
+    rect.hover ->
+      if type is "c"
+        return overFn rect, candelabra[index], data[currPos + index], dates[currPos + index]
+      if type is "l"
+        overFn rect, dots[index], data[currPos + index], dates[currPos + index]
+    , ->
+      if type is "c"
+        return outFn rect, candelabra[index], data[currPos + index], dates[currPos + index]
+      if type is "l"
+        outFn rect, dots[index], data[currPos + index], dates[currPos + index]
+    true
+  hover = (overFn, outFn) ->
+    # check whether event object has hover
+    event.hover = {overFn, outFn}
+    if blanket.length isnt 0
+      for rect, index in blanket
+        attachHover rect, index, overFn, outFn
+    @
   drawGrid = (x, y, w, h, wv, hv) ->
     gridPath = []
     rowHeight = h / hv
@@ -164,10 +178,6 @@ global.bgraph = (options) ->
     candle: candle
 
   redraw = ->
-    label          =     do r.set
-    label_visible  =     false
-    leave_timer    =     0
-    blanket        =     do r.set
     p              =     []
 
     if typeof data[0] is "object"
@@ -207,11 +217,6 @@ global.bgraph = (options) ->
 
     if type is "l"
       linepath.attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
-      label.push (r.text 60, 12, max + " " + ytext).attr txt
-      label.push (r.text 60, 27, xtext).attr txt1
-      do label.hide
-      frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: color, "stroke-width": 1, "fill-opacity": 1).hide()
-
       for i in [currPos...currPos + range]
         y = height - bottomgutter - Y * (dataL[i] - min)
         x = Math.round leftgutter + X * (i - currPos + .5)
@@ -224,61 +229,28 @@ global.bgraph = (options) ->
           X2 = Math.round leftgutter + X * (i - currPos + 1.5)
           a = getAnchors X0, Y0, x, y, X2, Y2
           p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
-        dot = r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
-        dots.push dot
-        activeXLabels.push (r.text x, height - 25, xlabels[i]).attr(txt2).toBack().rotate 90
+        dots.push r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
+        activeXLabels.push (r.text x, height - 25, xlabels[i]).attr(txt).toBack().rotate 90
         blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         rect = blanket[blanket.length - 1]
-        ((x, y, data, lbl, dot) =>
-          rect.hover =>
-            clearTimeout leave_timer
-            label[0].attr(text: data + " " + ytext)
-            label[1].attr(text: lbl)
-            side = "right"
-            side = "left"  if x + frame.getBBox().width > width
-            ppp = r.popup x, y, label, side, 1
-            frame.show().stop().animate {path: ppp.path}, 200 * label_visible
-            label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
-
-            dot.attr "r", 6
-            label_visible = true
-          ,=>
-            dot.attr "r", 4
-            leave_timer = setTimeout ->
-                        do frame.hide
-                        do label.hide
-                        label_visible = false
-                    ,   1
-        ) x, y, dataL[i], xlabels[i], dot
+        if event.hover?.overFn? and event.hover?.outFn?
+          attachHover rect, blanket.length - 1, event.hover.overFn, event.hover.outFn
 
       p = p.concat [x, y, x, y]
       linepath.attr path: p
-      do frame.toFront
-      do label.toFront
       do blanket.toFront
     else
       for i in [currPos + 1...currPos + range + 1]
         y = height - bottomgutter - Y * (data[i - 1].h - min)
         x = Math.round leftgutter + X * (i - currPos + .5)
-        activeXLabels.push (r.text x, height - 25, xlabels[i - 1]).attr(txt2).toBack().rotate 90
+        activeXLabels.push (r.text x, height - 25, xlabels[i - 1]).attr(txt).toBack().rotate 90
         candlestick = drawCandlestick data[i - 1], Y, x, y, color
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr stroke: "none", fill: "#000", opacity: 0
-        rect = blanket[blanket.length - 1]
-        ((x, y, dataItem, lbl) ->
-          rect.hover ->
-            clearTimeout leave_timer
-            @attr opacity: 0.04
-            label_visible = true
-          ,->
-            @attr opacity: 0
-            leave_timer = setTimeout ->
-                        label_visible = false
-                    ,   1
-
-        ) x, y, data[i - 1], xlabels[i - 1]
-        #candleMid = candlestick.candleMid
         candelFirst = candelFirst || candlestick.candle
         candelabra.push candlestick.candle
+        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr stroke: "none", fill: "#000", opacity: 0
+        rect = blanket[blanket.length - 1]
+        if event.hover?.overFn? and event.hover?.outFn?
+          attachHover rect, blanket.length - 1, event.hover.overFn, event.hover.outFn
 
       blanket.insertBefore candelFirst
     true
@@ -341,5 +313,5 @@ global.bgraph = (options) ->
     currPos = currPos + 1
     do redraw
     @
-  {draw, prev, next, toString, reSize, setMessage}
+  {paper: r, draw, prev, next, toString, reSize, setMessage, hover}
 

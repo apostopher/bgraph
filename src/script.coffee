@@ -42,6 +42,17 @@ jQuery ->
       success: (response) ->
         dates   =   []
         data    =   []
+        r       =   fiidiigraph.paper
+        label   =   do r.set
+        label_visible = false
+        leave_timer = 0
+        txt         =
+          font         : '12px Helvetica, Arial', "font-weight": "bold"
+          fill         : "#db2129"
+        txt1        =
+          font         : '10px Helvetica, Arial'
+          fill         : "#666"
+
         for own key, val of response.data
           dates.unshift val.date
           data.unshift  o: +val.o, h: +val.h, l: +val.l, c: +val.c
@@ -51,9 +62,34 @@ jQuery ->
           dates     :  dates
           xtext     :  "dates"
           ytext     :  "Rs."
-          type      :  "c"
+          type      :  "l"
           color     :  "#db2129"
+        label.push (r.text 60, 12, "Rs.").attr txt
+        label.push (r.text 60, 27, "dates").attr txt1
+        do label.hide
+        frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
+        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
+        fiidiigraph.hover (rect, dot, data, date)->
+          #rect.attr opacity: 0.04
+          clearTimeout leave_timer
+          label[0].attr(text: data.c + " " + "Rs.")
+          label[1].attr(text: do date.getDate + "-" + months[do date.getMonth])
+          side = "right"
+          side = "left"  if (dot.attr "cx") + frame.getBBox().width > r.width
+          ppp = r.popup (dot.attr "cx"), (dot.attr "cy"), label, side, 1
+          frame.show().stop().animate {path: ppp.path}, 200 * label_visible
+          label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
+          dot.attr "r", 6
+          label_visible = true
+        ,(rect, dot, data, date) ->
+          #rect.attr opacity: 0
+          dot.attr "r", 4
+          leave_timer = setTimeout ->
+                        do frame.hide
+                        do label.hide
+                        label_visible = false
+                    ,   1
         if fiidiigraph.draw fiidiioptions
           scripName = ""
           for scripObj in scrips
