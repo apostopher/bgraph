@@ -84,6 +84,8 @@ jQuery ->
           label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
           dot.attr "r", 6
           label_visible = true
+          do frame.toFront
+          do label.toFront
         ,(rect, dot, data, date) ->
           #rect.attr opacity: 0
           dot.attr "r", 4

@@ -72,14 +72,18 @@ global.bgraph = (options) ->
   attachHover = (context, rect, index, overFn, outFn) ->
     rect.hover ->
       if type is "c"
-        return overFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
-      if type is "l"
+        overFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
+      else if type is "l"
         overFn.call context, rect, dots[index], data[currPos + index], dates[currPos + index]
+      do blanket.toFront
+      true
     , ->
       if type is "c"
-        return outFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
-      if type is "l"
+        outFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
+      else if type is "l"
         outFn.call context, rect, dots[index], data[currPos + index], dates[currPos + index]
+      do blanket.toFront
+      true
     true
   hover = (overFn, outFn) ->
     # check whether event object has hover
@@ -206,14 +210,33 @@ global.bgraph = (options) ->
 
     Y = (height - bottomgutter - topgutter) / (max - min)
     # Before redraw, clear previous drawing
-    do yLabels.remove
-    do activeXLabels.remove
-    do chartMsg.remove
-    if type is "c" then do candelabra.remove
+    if yLabels?
+      do yLabels.remove
+      delete yLabels
+      yLabels = do r.set
+    if activeXLabels?
+      do activeXLabels.remove
+      delete activeXLabels
+      activeXLabels = do r.set
+    if chartMsg?
+      do chartMsg.remove
+      delete chartMsg
+      chartMsg = do r.set
+    if blanket?
+      do blanket.remove
+      delete blanket
+      blanket = do r.set
+    if type is "c"
+      do candelabra.remove
+      delete candelabra
+      candelabra = do r.set
     if type is "l"
       do linepath.remove
       do dots.remove
+      delete linepath
+      delete blanket
       linepath = do r.path
+      dots = do r.set
     drawLabels leftgutter + X * .5, topgutter + .5, height - topgutter - bottomgutter, 8, yRange
 
     if type is "l"
@@ -246,14 +269,13 @@ global.bgraph = (options) ->
         x = Math.round leftgutter + X * (i - currPos + .5)
         activeXLabels.push (r.text x, height - 25, xlabels[i - 1]).attr(txt).toBack().rotate 90
         candlestick = drawCandlestick data[i - 1], Y, x, y, color
-        candelFirst = candelFirst || candlestick.candle
         candelabra.push candlestick.candle
         blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr stroke: "none", fill: "#000", opacity: 0
         rect = blanket[blanket.length - 1]
         if events.hover?.overFn? and events.hover?.outFn?
           attachHover self, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
 
-      blanket.insertBefore candelFirst
+      do blanket.toFront
     self
 
   draw = (options) ->
