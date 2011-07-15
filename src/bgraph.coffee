@@ -208,6 +208,7 @@ global.bgraph = (options) ->
     # Before redraw, clear previous drawing
     do yLabels.remove
     do activeXLabels.remove
+    do chartMsg.remove
     if type is "c" then do candelabra.remove
     if type is "l"
       do linepath.remove
@@ -293,22 +294,18 @@ global.bgraph = (options) ->
     if typeof data[0] is "number" then type = "l"
     if type is "c" then gridRange = range + 2
 
-    # Clear the canvas for drawing
-    do r.clear
-    linepath = do r.path
-
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
-    do redraw @
+    redraw @
   prev = (dx) ->
     if currPos is 0 then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos - 1
-    do redraw @
+    redraw @
   next = (dx) ->
     if currPos + range is data.length then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos + 1
-    do redraw @
+    redraw @
   {paper: r, draw, prev, next, toString, reSize, setMessage, hover}
 

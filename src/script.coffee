@@ -1,5 +1,24 @@
 jQuery ->
   scrips = []
+  configfiidii = holder: "chartholder", height: 550
+  fiidiigraph = bgraph configfiidii
+  r       =   fiidiigraph.paper
+  label   =   do r.set
+  label_visible = false
+  leave_timer = 0
+  months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  txt         =
+    font         : '12px Helvetica, Arial', "font-weight": "bold"
+    fill         : "#db2129"
+  txt1        =
+    font         : '10px Helvetica, Arial'
+    fill         : "#666"
+
+  label.push (r.text 60, 12, "Rs.").attr txt
+  label.push (r.text 60, 27, "date").attr txt1
+  do label.hide
+  frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
+
   getScrips = (defaultScrip) ->
     $.ajax
       type: "GET"
@@ -30,8 +49,6 @@ jQuery ->
         if defaultScrip? then getCandles defaultScrip
 
   getCandles = (scrip) ->
-    configfiidii = holder: "chartholder", height: 550
-    fiidiigraph = bgraph configfiidii
     $.ajax
       type: "GET"
       url: "/serverscripts/candles.php"
@@ -42,17 +59,6 @@ jQuery ->
       success: (response) ->
         dates   =   []
         data    =   []
-        r       =   fiidiigraph.paper
-        label   =   do r.set
-        label_visible = false
-        leave_timer = 0
-        frame   =   0
-        txt         =
-          font         : '12px Helvetica, Arial', "font-weight": "bold"
-          fill         : "#db2129"
-        txt1        =
-          font         : '10px Helvetica, Arial'
-          fill         : "#666"
 
         for own key, val of response.data
           dates.unshift val.date
@@ -65,15 +71,12 @@ jQuery ->
           ytext     :  "Rs."
           type      :  "l"
           color     :  "#db2129"
-        months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-        fiidiigraph.hover (rect, dot, data, date) =>
+        fiidiigraph.hover (rect, dot, data, date) ->
           #rect.attr opacity: 0.04
           clearTimeout leave_timer
-          label.push (r.text 60, 12, data.c + " " + "Rs.").attr txt
-          label.push (r.text 60, 27, do date.getDate + "-" + months[do date.getMonth]).attr txt1
-          do label.hide
-          frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
+          label[0].attr text: data.c + " " + "Rs."
+          label[1].attr text: do date.getDate + "-" + months[do date.getMonth]
           side = "right"
           side = "left"  if (dot.attr "cx") + frame.getBBox().width > r.width
           ppp = r.popup (dot.attr "cx"), (dot.attr "cy"), label, side, 1
@@ -81,7 +84,7 @@ jQuery ->
           label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
           dot.attr "r", 6
           label_visible = true
-        ,(rect, dot, data, date) =>
+        ,(rect, dot, data, date) ->
           #rect.attr opacity: 0
           dot.attr "r", 4
           leave_timer = setTimeout ->
@@ -90,6 +93,8 @@ jQuery ->
                         label_visible = false
                     ,   1
         if fiidiigraph.draw fiidiioptions
+          do frame.toFront
+          do label.toFront
           scripName = ""
           for scripObj in scrips
             if scripObj.value is do scrip.toUpperCase
