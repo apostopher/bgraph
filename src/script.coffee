@@ -46,6 +46,7 @@ jQuery ->
         label   =   do r.set
         label_visible = false
         leave_timer = 0
+        frame   =   0
         txt         =
           font         : '12px Helvetica, Arial', "font-weight": "bold"
           fill         : "#db2129"
@@ -64,17 +65,15 @@ jQuery ->
           ytext     :  "Rs."
           type      :  "l"
           color     :  "#db2129"
-        label.push (r.text 60, 12, "Rs.").attr txt
-        label.push (r.text 60, 27, "dates").attr txt1
-        do label.hide
-        frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
         months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
-        fiidiigraph.hover (rect, dot, data, date)->
+        fiidiigraph.hover (rect, dot, data, date) =>
           #rect.attr opacity: 0.04
           clearTimeout leave_timer
-          label[0].attr(text: data.c + " " + "Rs.")
-          label[1].attr(text: do date.getDate + "-" + months[do date.getMonth])
+          label.push (r.text 60, 12, data.c + " " + "Rs.").attr txt
+          label.push (r.text 60, 27, do date.getDate + "-" + months[do date.getMonth]).attr txt1
+          do label.hide
+          frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
           side = "right"
           side = "left"  if (dot.attr "cx") + frame.getBBox().width > r.width
           ppp = r.popup (dot.attr "cx"), (dot.attr "cy"), label, side, 1
@@ -82,7 +81,7 @@ jQuery ->
           label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
           dot.attr "r", 6
           label_visible = true
-        ,(rect, dot, data, date) ->
+        ,(rect, dot, data, date) =>
           #rect.attr opacity: 0
           dot.attr "r", 4
           leave_timer = setTimeout ->

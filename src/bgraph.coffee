@@ -26,7 +26,7 @@ global.bgraph = (options) ->
       font         : '11px Helvetica, Arial'
       fill         : "#666"
       "text-anchor": "start"
-  events           : {}
+  events           = {}
 
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
@@ -69,24 +69,24 @@ global.bgraph = (options) ->
     chartMsg.push msg
     msg.animate {opacity: 1}, 200
     @
-  attachHover = (rect, index, overFn, outFn) ->
+  attachHover = (context, rect, index, overFn, outFn) ->
     rect.hover ->
       if type is "c"
-        return overFn rect, candelabra[index], data[currPos + index], dates[currPos + index]
+        return overFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
       if type is "l"
-        overFn rect, dots[index], data[currPos + index], dates[currPos + index]
+        overFn.call context, rect, dots[index], data[currPos + index], dates[currPos + index]
     , ->
       if type is "c"
-        return outFn rect, candelabra[index], data[currPos + index], dates[currPos + index]
+        return outFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
       if type is "l"
-        outFn rect, dots[index], data[currPos + index], dates[currPos + index]
+        outFn.call context, rect, dots[index], data[currPos + index], dates[currPos + index]
     true
   hover = (overFn, outFn) ->
     # check whether event object has hover
-    event.hover = {overFn, outFn}
+    events.hover = {overFn, outFn}
     if blanket.length isnt 0
       for rect, index in blanket
-        attachHover rect, index, overFn, outFn
+        attachHover @, rect, index, overFn, outFn
     @
   drawGrid = (x, y, w, h, wv, hv) ->
     gridPath = []
@@ -177,7 +177,7 @@ global.bgraph = (options) ->
     candleMid: Math.round candleY + candleHeight / 2
     candle: candle
 
-  redraw = ->
+  redraw = (self) ->
     p              =     []
 
     if typeof data[0] is "object"
@@ -202,7 +202,7 @@ global.bgraph = (options) ->
       max = yRange.endPoint
       min = yRange.startPoint
     else
-      return
+      return self
 
     Y = (height - bottomgutter - topgutter) / (max - min)
     # Before redraw, clear previous drawing
@@ -233,8 +233,8 @@ global.bgraph = (options) ->
         activeXLabels.push (r.text x, height - 25, xlabels[i]).attr(txt).toBack().rotate 90
         blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
         rect = blanket[blanket.length - 1]
-        if event.hover?.overFn? and event.hover?.outFn?
-          attachHover rect, blanket.length - 1, event.hover.overFn, event.hover.outFn
+        if events.hover?.overFn? and events.hover?.outFn?
+          attachHover self, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
 
       p = p.concat [x, y, x, y]
       linepath.attr path: p
@@ -249,11 +249,11 @@ global.bgraph = (options) ->
         candelabra.push candlestick.candle
         blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr stroke: "none", fill: "#000", opacity: 0
         rect = blanket[blanket.length - 1]
-        if event.hover?.overFn? and event.hover?.outFn?
-          attachHover rect, blanket.length - 1, event.hover.overFn, event.hover.outFn
+        if events.hover?.overFn? and events.hover?.outFn?
+          attachHover self, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
 
       blanket.insertBefore candelFirst
-    true
+    self
 
   draw = (options) ->
     {color, data, xtext, ytext, type} = options
@@ -299,19 +299,16 @@ global.bgraph = (options) ->
 
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
-    do redraw
-    @
+    do redraw @
   prev = (dx) ->
     if currPos is 0 then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos - 1
-    do redraw
-    @
+    do redraw @
   next = (dx) ->
     if currPos + range is data.length then return
     if not (+dx >= 0) then dx = 1
     currPos = currPos + 1
-    do redraw
-    @
+    do redraw @
   {paper: r, draw, prev, next, toString, reSize, setMessage, hover}
 
