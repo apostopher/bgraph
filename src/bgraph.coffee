@@ -1,5 +1,6 @@
 global = exports ? this
 global.bgraph = (options) ->
+  # Private variables
   chartTypes  =     ["c", "l"]
   data        =     []
   dataL       =     []
@@ -28,6 +29,7 @@ global.bgraph = (options) ->
       "text-anchor": "start"
   events           = {}
 
+  # private variables assignment
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
 
   ### the following validation will work only when the value is a positive number.
@@ -42,7 +44,13 @@ global.bgraph = (options) ->
 
   if not width? then width = do ($ "#" + holder).width
   ($ "#"+holder).html ""
+
+  # r is a public object. This is because users may want to draw custom shapes
+  # on canvas. This object may be augmented in future to provide more information
+  # and/or utility functions.
   r = Raphael holder, width, height
+
+  # These are the private variables again which depend on r
   candelabra     =  do r.set
   yLabels        =  do r.set
   activeXLabels  =  do r.set
@@ -50,25 +58,40 @@ global.bgraph = (options) ->
   chartMsg       =  do r.set
   blanket        =  do r.set
   linepath       =  do r.path
+
+  # Public method: Resize canvas after browser resize. This does not resize
+  # canvas elements though.
   reSize = ->
     newWidth = do ($ "#" + holder).width
     newHeight = do ($ "#" + holder).height
     r.setSize newWidth, newHeight
     true
+
+  # Public method: Prints the version number
   toString = ->
     "You are using Bgraph version 0.2."
 
+  # Public method: Used to post a message on canvas. center aligned vertically
+  # as well as horizontally. Useful to post a message while we are fetching the
+  # chart data from some ajax call.
+  # TODO: message style is not customizable
   setMessage = (message) ->
     txtErr      =
       font         : '24px Helvetica, Arial'
       fill         : "#999"
       opacity      : 0
 
+    # chartMsg is a set of messages. Can hold multiple messages
     do chartMsg.remove
     msg = (r.text width / 2, height / 2, message).attr txtErr
+
+    # add message to chartMsg
     chartMsg.push msg
     msg.animate {opacity: 1}, 200
     @
+
+  # Private method: This method is used by hover and redraw functions
+  # This is created as per DRY. as two functions need same functionality
   attachHover = (rect, index, overFn, outFn) ->
     rect.hover ->
       if type is "c"
@@ -85,6 +108,11 @@ global.bgraph = (options) ->
       do blanket.toFront
       true
     true
+
+  # Public method: attach user-specific hover event handlers to blanket elements.
+  # If this is called before draw, it just stores the event handlers
+  # If this is called after draw, it will loop over blanket elements and update
+  # hover event handlers
   hover = (overFn, outFn) ->
     # check whether event object has hover
     events.hover = {overFn, outFn}
@@ -92,6 +120,9 @@ global.bgraph = (options) ->
       for rect, index in blanket
         attachHover.call @, rect, index, overFn, outFn
     @
+
+  # Private method: This method draws the graph grid.
+  # TODO: The grid style is not customizable
   drawGrid = (x, y, w, h, wv, hv) ->
     gridPath = []
     rowHeight = h / hv
@@ -104,6 +135,7 @@ global.bgraph = (options) ->
 
     (r.path gridPath.join ",").attr stroke: gridColor
 
+  # Private method: This method draws the Y-axis labels.
   drawLabels = (x, y, h, hv, yValues) ->
     xRound = Math.round x
     rowHeight = h / hv
@@ -115,7 +147,12 @@ global.bgraph = (options) ->
       yWidth = yWidth || yLabel.getBBox().width
       txtY.x || txtY.x = xRound - yWidth - 5
       yLabel.attr(txtY).toBack()
+    true
 
+  # Private method: This method calculates the min and max Y values and step size
+  # for Y labels. This method must be called after every update in order to
+  # calculate new high, low and step for chart.
+  # May need refactoring in future.
   getYRange = (steps = 8, minOrig, maxOrig) ->
     dataYRange = maxOrig - minOrig
     tempStep = dataYRange / (steps - 1)
@@ -137,6 +174,8 @@ global.bgraph = (options) ->
 
     {startPoint, endPoint,  step}
 
+  # Private method: Calculate anchors for smooth line graph.
+  # this is taken as-is from http://raphaeljs.com/analytics.html
   getAnchors = (p1x, p1y, p2x, p2y, p3x, p3y) ->
     l1 = (p2x - p1x) / 2
     l2 = (p3x - p2x) / 2
@@ -155,6 +194,8 @@ global.bgraph = (options) ->
     x2: p2x + dx2
     y2: p2y + dy2
 
+  # Private method: This method draws one candlestick.
+  # TODO: The candle style is not customizable
   drawCandlestick =  (dataItem, Y, x, y, color = "#000") ->
     o = +dataItem.o || 0
     h = +dataItem.h || 0
@@ -181,6 +222,10 @@ global.bgraph = (options) ->
     candleMid: Math.round candleY + candleHeight / 2
     candle: candle
 
+  # Private method: This method redraws chart with new data points
+  # This is NOT a well thought implementation. Needs refactoring
+  # design change in future to support updating multiple charts on canvas
+  # currently it can update only one chart.
   redraw = ->
     p              =     []
 
@@ -278,6 +323,8 @@ global.bgraph = (options) ->
       do blanket.toFront
     @
 
+  # Public method: This method accepts X and Y values and draws chart.
+  # Currently this supports only one chart.
   draw = (options) ->
     {color, data, xtext, ytext, type} = options
     dataRange = data.length
@@ -319,15 +366,24 @@ global.bgraph = (options) ->
     X = (width - leftgutter) / gridRange
     drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
     redraw.call @
+
+  # Public method: move chart to left
+  # It calls redraw. doesnt do much by itself.
   prev = (dx) ->
     if currPos is 0 then return
     if not (+dx >= 0) then dx = 1
-    currPos = currPos - 1
+    currPos = currPos - dx
     redraw.call @
+
+  # Public method: move chart to right
+  # It calls redraw. doesnt do much by itself.
   next = (dx) ->
     if currPos + range is data.length then return
     if not (+dx >= 0) then dx = 1
-    currPos = currPos + 1
+    currPos = currPos + dx
     redraw.call @
+
+  # Return an object with public methods and variables
+  # If new public methods/variables need to be published add them here.
   {paper: r, draw, prev, next, toString, reSize, setMessage, hover}
 
