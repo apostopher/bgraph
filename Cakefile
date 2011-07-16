@@ -22,10 +22,14 @@ task 'build', 'Build single application file from source files', ->
         console.log stdout + stderr
         fs.unlink 'lib/app.coffee', (err) ->
           throw err if err
-          console.log 'Done.'
 
 task 'minify', 'Minify the resulting application file after build', ->
   exec 'java -jar "tools/compiler.jar" --js lib/app.js --js_output_file lib/app.min.js', (err, stdout, stderr) ->
     throw err if err
     console.log stdout + stderr
+
+task 'publish', 'Build and minify project files. Ready for production', ->
+  exec 'cake build && cake minify', (err, stdout, stderr) ->
+    throw err if err
+    console.log 'Done.'
 

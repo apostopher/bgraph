@@ -102,9 +102,9 @@ global.bgraph = (options) ->
       true
     , ->
       if type is "c"
-        outFn.call context, rect, candelabra[index], data[currPos + index], dates[currPos + index]
+        outFn.call @, rect, candelabra[index], data[currPos + index], dates[currPos + index]
       else if type is "l"
-        outFn.call context, rect, dots[index], data[currPos + index], dates[currPos + index]
+        outFn.call @, rect, dots[index], data[currPos + index], dates[currPos + index]
       do blanket.toFront
       true
     true

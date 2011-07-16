@@ -69,11 +69,12 @@ jQuery ->
           dates     :  dates
           xtext     :  "dates"
           ytext     :  "Rs."
-          type      :  "l"
+          type      :  "c"
           color     :  "#db2129"
 
         fiidiigraph.hover (rect, dot, data, date) ->
-          #rect.attr opacity: 0.04
+          rect.attr opacity: 0.04
+          ###
           clearTimeout leave_timer
           label[0].attr text: data.c + " " + "Rs."
           label[1].attr text: do date.getDate + "-" + months[do date.getMonth]
@@ -86,14 +87,17 @@ jQuery ->
           label_visible = true
           do frame.toFront
           do label.toFront
+          ###
         ,(rect, dot, data, date) ->
-          #rect.attr opacity: 0
+          rect.attr opacity: 0
+          ###
           dot.attr "r", 4
           leave_timer = setTimeout ->
                         do frame.hide
                         do label.hide
                         label_visible = false
                     ,   1
+          ###
         if fiidiigraph.draw fiidiioptions
           do frame.toFront
           do label.toFront
