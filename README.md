@@ -4,5 +4,5 @@ Cross-browser stock market technical analysis tools. Written purely in javascrip
 
 ## Screenshot
 
-![Screenshot](Screenshot.png "BGraph Demo")
+![Screenshot](./Screenshot.png "BGraph Demo")
 
