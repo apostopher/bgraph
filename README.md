@@ -6,5 +6,5 @@ Cross-browser stock market technical analysis tools. Written purely in javascrip
 
 ![Screenshot][screenshot]
 
-[screenshot]: http://blackbull.in/images/github/Screenshot.png
+[screenshot]: http://blackbull.in/images/github/Screenshot.jpg
 
