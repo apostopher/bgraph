@@ -4,5 +4,5 @@ Cross-browser stock market technical analysis tools. Written purely in javascrip
 
 ## Screenshot
 
-![Screenshot](https://github.com/apostopher/bgraph/blob/master/Screenshot.png "BGraph Demo")
+![Screenshot](http://blackbull.in/images/github/Screenshot.png "BGraph Demo")
 
