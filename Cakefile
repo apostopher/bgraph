@@ -29,7 +29,6 @@ task 'minify', 'Minify the resulting application file after build', ->
     console.log stdout + stderr
 
 task 'publish', 'Build and minify project files. Ready for production', ->
-  exec 'cake build && cake minify', (err, stdout, stderr) ->
-    throw err if err
-    console.log 'Done.'
+  invoke 'build'
+  invoke 'minify'
 
