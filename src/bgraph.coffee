@@ -27,7 +27,31 @@ global.bgraph = (options) ->
       font         : '11px Helvetica, Arial'
       fill         : "#666"
       "text-anchor": "start"
-  events           = {}
+  dotAttr     =
+      fill           : "#fff"
+      stroke         : color
+      "stroke-width" : 2
+  blanketAttr =
+      stroke       : "none"
+      fill         : "#fff"
+      opacity      : 0
+  lineAttr    =
+      stroke            : color
+      "stroke-width"    : 3
+      "stroke-linejoin" : "round"
+  upAttr      =
+      stroke            : "#000"
+      fill              : "0-#ddd-#f9f9f9:50-#ddd"
+      "stroke-linejoin" : "round"
+  downAttr    =
+      stroke            : "#000"
+      fill              : "0-#222-#555:50-#222"
+      "stroke-linejoin" : "round"
+  hlAttr      =
+      stroke            : "#000"
+      "stroke-width"    : 1
+      "stroke-linejoin" : "round"
+  events      =     {}
 
   # private variables assignment
   {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
@@ -210,14 +234,14 @@ global.bgraph = (options) ->
 
     stickPath = []
     stickPath = ["M", (Math.round x) + .5, (Math.round y) + .5, "V", Math.round y + (h - l) * Y]
-    candle.push (r.path stickPath.join ",").attr stroke: "#000", "stroke-width": 1, "stroke-linejoin": "round"
+    candle.push (r.path stickPath.join ",").attr hlAttr
     candleX = Math.round x - candleWidth / 2
     if candleType is 1
       candleY = Math.round y + (h-c) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: "#000", fill: "0-#ddd-#f9f9f9:50-#ddd", "stroke-linejoin": "round"
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr upAttr
     else
       candleY = Math.round y + (h-o) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr stroke: "#000", fill: "0-#222-#555:50-#222", "stroke-linejoin": "round"
+      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr downAttr
 
     candleMid: Math.round candleY + candleHeight / 2
     candle: candle
@@ -285,7 +309,7 @@ global.bgraph = (options) ->
     drawLabels leftgutter + X * .5, topgutter + .5, height - topgutter - bottomgutter, 8, yRange
 
     if type is "l"
-      linepath.attr stroke: color, "stroke-width": 3, "stroke-linejoin": "round"
+      linepath.attr lineAttr
       for i in [currPos...currPos + range]
         y = height - bottomgutter - Y * (dataL[i] - min)
         x = Math.round leftgutter + X * (i - currPos + .5)
@@ -298,9 +322,9 @@ global.bgraph = (options) ->
           X2 = Math.round leftgutter + X * (i - currPos + 1.5)
           a = getAnchors X0, Y0, x, y, X2, Y2
           p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
-        dots.push r.circle(x, y, 4).attr fill: "#fff", stroke: color, "stroke-width": 2
+        dots.push r.circle(x, y, 4).attr dotAttr
         activeXLabels.push (r.text x, height - 25, xlabels[i]).attr(txt).toBack().rotate 90
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr stroke: "none", fill: "#fff", opacity: 0
+        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr blanketAttr
         rect = blanket[blanket.length - 1]
         if events.hover?.overFn? and events.hover?.outFn?
           attachHover.call @, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
@@ -315,7 +339,7 @@ global.bgraph = (options) ->
         activeXLabels.push (r.text x, height - 25, xlabels[i - 1]).attr(txt).toBack().rotate 90
         candlestick = drawCandlestick data[i - 1], Y, x, y, color
         candelabra.push candlestick.candle
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr stroke: "none", fill: "#000", opacity: 0
+        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr blanketAttr
         rect = blanket[blanket.length - 1]
         if events.hover?.overFn? and events.hover?.outFn?
           attachHover.call @, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
