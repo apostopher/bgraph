@@ -1,177 +1,130 @@
 global = exports ? this
-global.bgraph = (options) ->
-  # Private variables
-  chartTypes  =     ["c", "l"]
-  data        =     []
-  dataL       =     []
-  xlabels     =     []
-  maxArray    =     []
-  minArray    =     []
-  dates       =     []
-  range       =     0
-  type        =     "l"
-  xtext       =     ""
-  ytext       =     ""
-  columnWidth =     0
-  dataRange   =     0
-  currPos     =     0
-  X           =     0
-  Y           =     0
-  prefWidth   =     36
-  validColor  =     /^#{1}(([a-fA-F0-9]){3}){1,2}$/
-  color       =     "#000"
-  txt         =
-      font         : '11px Helvetica, Arial'
-      fill         : "#666"
-  txtY        =
-      font         : '11px Helvetica, Arial'
-      fill         : "#666"
+
+class global.BGraph
+
+  # Private vars.
+  leftgutter     =  30
+  topgutter      =  20
+  bottomgutter   =  50
+  rightgutter    =  30
+  months         =  ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  txtY           =
+      font       :  '11px Helvetica, Arial'
+      fill       :  "#666"
       "text-anchor": "start"
+  lineAttr    =
+      stroke            : "#3C60A4"
+      "stroke-width"    : 3
+      "stroke-linejoin" : "round"
+
   dotAttr     =
       fill           : "#fff"
-      stroke         : color
+      stroke         : "#3C60A4"
       "stroke-width" : 2
-  blanketAttr =
+
+  pBlanketAttr =
       stroke       : "none"
       fill         : "#fff"
       opacity      : 0
-  lineAttr    =
-      stroke            : color
-      "stroke-width"    : 3
-      "stroke-linejoin" : "round"
-  upAttr      =
-      stroke            : "#000"
-      fill              : "0-#ddd-#f9f9f9:50-#ddd"
-      "stroke-linejoin" : "round"
-  downAttr    =
-      stroke            : "#000"
-      fill              : "0-#222-#555:50-#222"
-      "stroke-linejoin" : "round"
-  hlAttr      =
-      stroke            : "#000"
-      "stroke-width"    : 1
-      "stroke-linejoin" : "round"
-  events      =     {}
+  txt         =
+      font         : '11px Helvetica, Arial'
+      fill         : "#666"
+  
+  txtLY       =
+    font         : '12px Helvetica, Arial'
+    "font-weight": "bold"
+    fill         : "#3C60A4"
 
-  # private variables assignment
-  {width, height, holder, leftgutter, topgutter, bottomgutter, gridColor} = options
+  txtLX       =
+    font         : '10px Helvetica, Arial'
+    fill         : "#666"
 
-  ### the following validation will work only when the value is a positive number.
-    +undefined = NaN, +"hello" = NaN
-    also NaN >= 0 is false and NaN < 0 is false too :)
-    probably NaN is in 4th dimention...
-  ###
-  if not (+leftgutter >= 0) then leftgutter = 30
-  if not (+topgutter >= 0) then topgutter = 20
-  if not (+bottomgutter >= 0) then bottomgutter = 50
-  if not validColor.test gridColor then gridColor = "#DFDFDF"
+  bpAttr      =
+    "stroke-opacity" : "0.000001"
+    stroke           : "#fff"
+    "stroke-width"   : "30"
 
-  if not width? then width = do ($ "#" + holder).width
-  ($ "#"+holder).html ""
+  constructor: (@options) ->
 
-  # r is a public object. This is because users may want to draw custom shapes
-  # on canvas. This object may be augmented in future to provide more information
-  # and/or utility functions.
-  r = Raphael holder, width, height
+    holderwidth = do ($ "#" + options.holder).width
+    if not options.width? then options.width = holderwidth
+    @paper = Raphael options.holder, "100%", options.height
 
-  # These are the private variables again which depend on r
-  candelabra     =  do r.set
-  yLabels        =  do r.set
-  activeXLabels  =  do r.set
-  dots           =  do r.set
-  chartMsg       =  do r.set
-  blanket        =  do r.set
-  linepath       =  do r.path
+    # Calculate fit screen start
+    availablewidth = holderwidth - leftgutter - rightgutter
+    # 35px is the preferred distance between two points
+    fitwidthsize = Math.floor availablewidth / 35
+    # These are the chart variables which depend on @paper
+    @chartData     =
+      primaryYData :  []
+      xData        :  []
+      cache        :  {}
+      fitwidth     :  fitwidthsize
 
-  # Public method: Resize canvas after browser resize. This does not resize
-  # canvas elements though.
-  reSize = ->
-    newWidth = do ($ "#" + holder).width
-    newHeight = do ($ "#" + holder).height
-    r.setSize newWidth, newHeight
-    true
+    @popup  =  yFormat :  '#{y}', xFormat : '#{x}'
 
-  # Public method: Prints the version number
-  toString = ->
-    "You are using Bgraph version 0.2."
+    # Events object
+    @events        =  hover :
+                        overFn : null
+                        outFn  : null
 
-  # Public method: Used to post a message on canvas. center aligned vertically
-  # as well as horizontally. Useful to post a message while we are fetching the
-  # chart data from some ajax call.
-  # TODO: message style is not customizable
-  setMessage = (message) ->
-    txtErr      =
-      font         : '24px Helvetica, Arial'
-      fill         : "#999"
-      opacity      : 0
-
-    # chartMsg is a set of messages. Can hold multiple messages
-    do chartMsg.remove
-    msg = (r.text width / 2, height / 2, message).attr txtErr
-
-    # add message to chartMsg
-    chartMsg.push msg
-    msg.animate {opacity: 1}, 200
-    @
-
-  # Private method: This method is used by hover and redraw functions
-  # This is created as per DRY. as two functions need same functionality
-  attachHover = (rect, index, overFn, outFn) ->
-    rect.hover ->
-      if type is "c"
-        overFn.call @, rect, candelabra[index], data[currPos + index], dates[currPos + index]
-      else if type is "l"
-        overFn.call @, rect, dots[index], data[currPos + index], dates[currPos + index]
-      do blanket.toFront
-      true
-    , ->
-      if type is "c"
-        outFn.call @, rect, candelabra[index], data[currPos + index], dates[currPos + index]
-      else if type is "l"
-        outFn.call @, rect, dots[index], data[currPos + index], dates[currPos + index]
-      do blanket.toFront
-      true
-    true
-
-  # Public method: attach user-specific hover event handlers to blanket elements.
-  # If this is called before draw, it just stores the event handlers
-  # If this is called after draw, it will loop over blanket elements and update
-  # hover event handlers
-  hover = (overFn, outFn) ->
-    # check whether event object has hover
-    events.hover = {overFn, outFn}
-    if blanket.length isnt 0
-      for rect, index in blanket
-        attachHover.call @, rect, index, overFn, outFn
-    @
+    initializeStage @
+  
+  #Private method: This method initializes data
+  initializeStage = (thisArg) ->
+    thisArg.chartProps  =
+      primaryYLabels      :  null
+      xLabels             :  do thisArg.paper.set
+      chartMsg            :  null
+      pBlanket            :  do thisArg.paper.set
+      pDots               :  do thisArg.paper.set
+      primaryPath         :  do thisArg.paper.path
 
   # Private method: This method draws the graph grid.
-  # TODO: The grid style is not customizable
-  drawGrid = (x, y, w, h, wv, hv) ->
+  drawGrid = (r, x, y, w, h, wv, hv) ->
+    grid = do r.set
     gridPath = []
+    axisPath = []
     rowHeight = h / hv
     columnWidth = w / wv
 
     xRound = Math.round x
 
-    gridPath = gridPath.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5] for i in [0..hv]
-    gridPath = gridPath.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [0..wv]
+    gridPath = gridPath.concat ["M", xRound + .5, Math.round(y + i * rowHeight) + .5, "H", Math.round(x + w) + .5] for i in [0..hv-1]
 
-    (r.path gridPath.join ",").attr stroke: gridColor
+    #gridPath = gridPath.concat ["M", Math.round(x + i * columnWidth) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5] for i in [1..wv]
+    
+    axisPath = axisPath.concat ["M", xRound + .5, Math.round(y + hv * rowHeight) + .5, "H", Math.round(x + w) + .5]
+    axisPath = axisPath.concat ["M", Math.round(x) + .5, Math.round(y) + .5, "V", Math.round(y + h) + .5]
+    
+    hLines = r.path gridPath.join ","
+    hLines.attr stroke: "#eee"
+
+    axis = r.path axisPath.join ","
+    axis.attr stroke: "#ccc"
+
+    grid.push axis
+    grid.push hLines
+    do grid.toBack
+    grid
 
   # Private method: This method draws the Y-axis labels.
-  drawLabels = (x, y, h, hv, yValues) ->
+  drawYLabels = (r, x, y, h, hv, yRange, w) ->
     xRound = Math.round x
     rowHeight = h / hv
-
+    YLabels = do r.set
     for i in [0..hv]
-      yStep = (yValues.endPoint - (i * yValues.step)).toFixed 2
-      yLabel = r.text xRound, Math.round(y + i * rowHeight) + .5, yStep
-      yLabels.push yLabel
-      yWidth = yWidth || yLabel.getBBox().width
-      txtY.x || txtY.x = xRound - yWidth - 5
-      yLabel.attr(txtY).toBack()
-    true
+      yStep = (yRange.endPoint - (i * yRange.step)).toFixed 2
+      yLabel = r.text 0, Math.round(y + i * rowHeight) + .5, yStep
+      if not w
+        yWidth = yLabel.getBBox().width
+        txtY.x = xRound - yWidth - 5
+      else
+        txtY.x = xRound + w + 5
+
+      do yLabel.attr(txtY).toBack
+      YLabels.push yLabel
+    YLabels
 
   # Private method: This method calculates the min and max Y values and step size
   # for Y labels. This method must be called after every update in order to
@@ -189,7 +142,7 @@ global.bgraph = (options) ->
     else
       return
 
-    base = base / 2 while tempStep % base <= base / 2
+    base = base / 2 while tempStep % base and tempStep % base <= base / 2
     step = tempStep + base - tempStep % base
     stepRange = step * steps
     rangeGutter = stepRange - dataYRange - step / 2
@@ -199,8 +152,10 @@ global.bgraph = (options) ->
     {startPoint, endPoint,  step}
 
   # Private method: Calculate anchors for smooth line graph.
-  # this is taken as-is from http://raphaeljs.com/analytics.html
   getAnchors = (p1x, p1y, p2x, p2y, p3x, p3y) ->
+    if p2x is p3x and p2y is p3y
+      return x1: p2x, y1: p2y, x2: undefined, y2: undefined
+
     l1 = (p2x - p1x) / 2
     l2 = (p3x - p2x) / 2
     a = Math.atan((p2x - p1x) / Math.abs(p2y - p1y))
@@ -218,58 +173,195 @@ global.bgraph = (options) ->
     x2: p2x + dx2
     y2: p2y + dy2
 
-  # Private method: This method draws one candlestick.
-  # TODO: The candle style is not customizable
-  drawCandlestick =  (dataItem, Y, x, y, color = "#000") ->
-    o = +dataItem.o || 0
-    h = +dataItem.h || 0
-    l = +dataItem.l || 0
-    c = +dataItem.c || 0
-    if c > o then candleType = 1 else candleType = 0
+  # Private method: This method is used by hover and redraw functions
+  # This is created as per DRY. as two functions need same functionality
+  attachHover = (rect, index, overFn, outFn, pDots, pBlanket, activeXData, activePrimaryYData) ->
+    rect.hover ->
+      overFn.call @, rect, pDots[index], activePrimaryYData[index], activeXData[index]
+      do pBlanket.toFront
+      true
+    , ->
+      outFn.call @, rect, pDots[index], activePrimaryYData[index], activeXData[index]
+      do pBlanket.toFront
+      true
+    true
+  
+  # Private method: This method adjusts the data to fit the screen
+  adjustData = (yData, xData, step, maxNewData) ->
+    newYData = []
+    newXData = []
+    sliceindex = 0 - step * maxNewData
+    lastindex = yData.length - 1
+    for y, index in yData
+      if (lastindex - index) % step is 0
+        newYData.push y
+        newXData.push xData[index]
 
-    candleWidth = Math.round columnWidth / 2 - 4
-    candleHeight = Math.round Y * (Math.abs c - o)
-    if candleHeight is 0 then candleHeight = 1
-    candle = r.set()
+    [(newYData.slice sliceindex), newXData.slice sliceindex]
 
-    stickPath = []
-    stickPath = ["M", (Math.round x) + .5, (Math.round y) + .5, "V", Math.round y + (h - l) * Y]
-    candle.push (r.path stickPath.join ",").attr hlAttr
-    candleX = Math.round x - candleWidth / 2
-    if candleType is 1
-      candleY = Math.round y + (h-c) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr upAttr
+  # Public method: default over function
+  defaultHoverFns: () ->
+    label = do @paper.set
+    label_visible = false
+    leave_timer = 0
+    r = @paper
+    frameAttr = fill: "#F9FAFC", stroke: "#DBDCDE", "stroke-width": 1, "fill-opacity": 1
+    yLegend = @popup.yFormat
+    xLegend = @popup.xFormat
+    textX = txtLX
+    textY = txtLY
+
+    label.push (@paper.text 60, 12, "").attr textY
+    label.push (@paper.text 60, 27, "").attr textX
+    do label.hide
+    frame = (@paper.popup 100, 100, label, "right").attr(frameAttr).hide()
+
+    getLabelText = (formatStr, x, y) ->
+      yLArray = formatStr.split '#{y}'
+      yReplaced = yLArray.join y
+
+      xLArray = yReplaced.split '#{x}'
+      xReplaced = xLArray.join x
+
+    overFn = (rect, dot, data, date) ->
+      clearTimeout leave_timer
+      dateStr = do date.getDate + "-" + months[do date.getMonth] + "-" + date.getFullYear()
+      label[0].attr text: getLabelText yLegend, dateStr, data
+      label[1].attr text: getLabelText xLegend, dateStr, data
+      side = "right"
+      console.log r.width
+      side = "left"  if (dot.attr "cx") + frame.getBBox().width > r.canvas.width.baseVal.value
+      ppp = @paper.popup (dot.attr "cx"), (dot.attr "cy"), label, side, 1
+      lx = label[0].transform()[0][1] + ppp.dx
+      ly = label[0].transform()[0][2] + ppp.dy
+      anim = Raphael.animation {path: ppp.path, transform: ["t", ppp.dx, ppp.dy]}, 200 * label_visible
+      frame.show().stop().animate anim
+      label[0].show().stop().animateWith frame, anim, {transform: ["t", lx, ly]}, 200 * label_visible
+      label[1].show().stop().animateWith frame, anim, {transform: ["t", lx, ly]}, 200 * label_visible
+      dot.attr "r", 6
+      label_visible = true
+      do frame.toFront
+      do label.toFront
+
+    outFn = (rect, dot, data, date) ->
+      dot.attr "r", 4
+      leave_timer = setTimeout ->
+        do frame.hide
+        do label[0].hide
+        do label[1].hide
+        label_visible = false
+      , 1
+
+    {overFn, outFn}
+  
+  # Public method: set the chart data. This is useful when chart data is received
+  # in AJAX request. The loading message can be displayed till the data is received.
+  setData: (data, xname = "x", yname = "y", dataname = "fiidii") ->
+    if @chartData.cache[dataname]
+      @chartData.primaryYData = @chartData.cache[dataname].y
+      @chartData.xData = @chartData.cache[dataname].x
     else
-      candleY = Math.round y + (h-o) * Y
-      candle.push (r.rect candleX + .5, candleY + .5, candleWidth, candleHeight).attr downAttr
+      @chartData.primaryYData = map data, (dataItem) -> +dataItem[yname] || 0
+      if @options.type is "l"
+        # Accept dates as string and create date objects from it.
+        @chartData.xData = map data, (dataItem) ->
+          dateArray = dataItem[xname].split "-"
+          new Date dateArray[0], dateArray[1] - 1, dateArray[2]
 
-    candleMid: Math.round candleY + candleHeight / 2
-    candle: candle
-
-  # Private method: This method redraws chart with new data points
-  # This is NOT a well thought implementation. Needs refactoring
-  # design change in future to support updating multiple charts on canvas
-  # currently it can update only one chart.
-  redraw = ->
-    p              =     []
-
-    if typeof data[0] is "object"
-      if type is "c"
-        max = Math.max maxArray[currPos...currPos + range]...
-        min = Math.min minArray[currPos...currPos + range]...
       else
-        max = Math.max dataL[currPos...currPos + range]...
-        min = Math.min dataL[currPos...currPos + range]...
-    else if typeof data[0] is "number"
-      # line chart uses dataL as a source. not data.
-      dataL = data
-      if currPos is 0
-        max = Math.max dataL...
-        min = Math.min dataL...
-      else
-        max = Math.max dataL[currPos...currPos + range]...
-        min = Math.min dataL[currPos...currPos + range]...
+        @chartData.xData = map data, (dataItem) -> dataItem.x
 
+      @chartData.cache[dataname] = x: @chartData.xData, y: @chartData.primaryYData
+      setTimeout =>
+        delete @chartData.cache[dataname]
+      , 3000
+    # Attach the resize event handler
+    #($ window).resize -> @draw false
+    @
+
+  # Public method: attach user-specific hover event handlers to pBlanket elements.
+  # If this is called before draw, it just stores the event handlers
+  # If this is called after draw, it will loop over pBlanket elements and update
+  # hover event handlers
+  hover: (overFn, outFn) ->
+    # check whether event object has hover
+    @events.hover = {overFn, outFn}
+    if @chartProps.pBlanket.length isnt 0
+      for rect, index in @chartProps.pBlanket
+        attachHover.call @, rect, index, overFn, outFn
+    @
+
+  # Public method: set the labels for default popup
+  setHoverLabels: (xL = '#{x}', yL = '#{y}') ->
+    @popup.xFormat = xL
+    @popup.yFormat = yL
+    @
+       
+  toString: ->
+    "Bgraph version 0.2."
+
+  # Public method: Used to post a message on canvas. center aligned vertically
+  # as well as horizontally. Useful to post a message while we are fetching the
+  # chart data from some ajax call.
+  # TODO: message style is not customizable
+  setMessage: (message, style) ->
+    txtMsg      =
+      "font-size"  : 18
+      "font-weight": 300
+      fill         : "#999"
+      opacity      : 0
+
+    # chartMsg is a set of messages. Can hold multiple messages
+    do @paper.clear
+    @chartProps.chartMsg = do @paper.set
+    msg = (@paper.text @options.width / 2, @options.height / 2, message).attr (style ? txtMsg)
+
+    # add message to chartMsg
+    @chartProps.chartMsg.push msg
+    msg.animate {opacity: 1}, 200
+    @
+
+  # Public method: This method accepts X and Y values and draws chart.
+  # Currently this supports only one chart.
+  draw: (primaryOnly, start, end) ->
+    #private variables
+    p = []
+    
+    # clear the stage
+    do @paper.clear
+    initializeStage @
+
+    #set active data
+    fitwidth = @chartData.fitwidth
+    if not start?
+      #start is not specified.
+      # calculate start based on screen width
+      start = 0 - fitwidth
+
+    if end?
+      activePrimaryYData = @chartData.primaryYData.slice start, end
+      activeXData = @chartData.xData.slice start, end
+    else
+      activePrimaryYData = @chartData.primaryYData.slice start
+      activeXData = @chartData.xData.slice start
+
+    gridRange = activePrimaryYData.length
+    if not gridRange
+      @setMessage "Empty dataset..."
+      return @
+
+    if gridRange > fitwidth
+      # We will have to drop some data to fit screen
+      step = Math.floor gridRange / fitwidth
+      [activePrimaryYData, activeXData] = adjustData activePrimaryYData, activeXData, step, fitwidth
+      gridRange = activePrimaryYData.length
+    else
+      step = 1
+
+    # Get max and min of chart data
+    max = Math.max activePrimaryYData...
+    min = Math.min activePrimaryYData...
+    
     yRange = getYRange 8, min, max
     if yRange?
       max = yRange.endPoint
@@ -277,137 +369,85 @@ global.bgraph = (options) ->
     else
       return self
 
-    Y = (height - bottomgutter - topgutter) / (max - min)
-    # Before redraw, clear previous drawing
-    if yLabels?
-      do yLabels.remove
-      delete yLabels
-      yLabels = do r.set
-    if activeXLabels?
-      do activeXLabels.remove
-      delete activeXLabels
-      activeXLabels = do r.set
-    if chartMsg?
-      do chartMsg.remove
-      delete chartMsg
-      chartMsg = do r.set
-    if blanket?
-      do blanket.remove
-      delete blanket
-      blanket = do r.set
-    if type is "c"
-      do candelabra.remove
-      delete candelabra
-      candelabra = do r.set
-    if type is "l"
-      do linepath.remove
-      do dots.remove
-      delete linepath
-      delete blanket
-      linepath = do r.path
-      dots = do r.set
-    drawLabels leftgutter + X * .5, topgutter + .5, height - topgutter - bottomgutter, 8, yRange
+    # Draw the grid
+    X = (@options.width - leftgutter - rightgutter) / gridRange
+    Y = (@options.height - bottomgutter - topgutter) / (max - min)
 
-    if type is "l"
-      linepath.attr lineAttr
-      for i in [currPos...currPos + range]
-        y = height - bottomgutter - Y * (dataL[i] - min)
-        x = Math.round leftgutter + X * (i - currPos + .5)
+    if not @chartProps.grid
+      @chartProps.grid = drawGrid @paper, leftgutter + X * .5, topgutter + .5, @options.width - leftgutter - rightgutter - X, @options.height - topgutter - bottomgutter, gridRange - 1, 8
 
-        p = ["M", x, y, "C", x, y] if i is currPos
-        if i isnt currPos and i < currPos + range - 1
-          Y0 = height - bottomgutter - Y * (dataL[i - 1] - min)
-          X0 = Math.round leftgutter + X * (i - currPos - .5)
-          Y2 = height - bottomgutter - Y * (dataL[i + 1] - min)
-          X2 = Math.round leftgutter + X * (i - currPos + 1.5)
-          a = getAnchors X0, Y0, x, y, X2, Y2
-          p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
-        dots.push r.circle(x, y, 4).attr dotAttr
-        activeXLabels.push (r.text x, height - 25, xlabels[i]).attr(txt).toBack().rotate 90
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height - bottomgutter).attr blanketAttr
-        rect = blanket[blanket.length - 1]
-        if events.hover?.overFn? and events.hover?.outFn?
-          attachHover.call @, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
-
-      p = p.concat [x, y, x, y]
-      linepath.attr path: p
-      do blanket.toFront
-    else
-      for i in [currPos + 1...currPos + range + 1]
-        y = height - bottomgutter - Y * (data[i - 1].h - min)
-        x = Math.round leftgutter + X * (i - currPos + .5)
-        activeXLabels.push (r.text x, height - 25, xlabels[i - 1]).attr(txt).toBack().rotate 90
-        candlestick = drawCandlestick data[i - 1], Y, x, y, color
-        candelabra.push candlestick.candle
-        blanket.push (r.rect leftgutter + X * (i - currPos), 0, X, height).attr blanketAttr
-        rect = blanket[blanket.length - 1]
-        if events.hover?.overFn? and events.hover?.outFn?
-          attachHover.call @, rect, blanket.length - 1, events.hover.overFn, events.hover.outFn
-
-      do blanket.toFront
-    @
-
-  # Public method: This method accepts X and Y values and draws chart.
-  # Currently this supports only one chart.
-  draw = (options) ->
-    {color, data, xtext, ytext, type} = options
-    dataRange = data.length
-    if dataRange is 0
-      setMessage "Symbol not found..."
-      return false
-
-    rawDates = options.dates
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-    if (_.indexOf chartTypes, type) is -1 then type = "l"
-
-    if typeof data[0] is "object"
-      if type is "c"
-        maxArray = _.map data, (dataItem) -> +dataItem.h || 0
-        minArray = _.map data, (dataItem) -> +dataItem.l || 0
-      else
-        # line chart uses dataL as a source. not data.
-        dataL = _.map data, (dataItem) -> +dataItem.c || 0
-
-    if not validColor.test color then color = "#000"
-    # Accept dates as string and create date objects from it.
-    dates = _.map rawDates, (rawDate) -> new Date(rawDate)
-    # prefWidth is the width of column so that candles look good.
-    range = Math.round (width - leftgutter)/prefWidth
-    if range >= dataRange
-      range = dataRange
-    else
-      currPos = dataRange - range
-
-    gridRange = range
     # Create X-Axis labels from date array
-    xlabels = _.map dates, (date) -> do date.getDate + "-" + months[do date.getMonth]
+    labels = map activeXData, (date) -> do date.getDate + "-" + months[do date.getMonth]
 
-    # data can be plain numbers OR OHLC values.
-    if typeof data[0] is "number" then type = "l"
-    if type is "c" then gridRange = range + 2
+    #draw labels
+    @chartProps.primaryYLabels = drawYLabels @paper, leftgutter + X * .5, topgutter + .5, @options.height - topgutter - bottomgutter, 8, yRange
+    
+    #draw chart
+    @chartProps.primaryPath.attr lineAttr
 
-    X = (width - leftgutter) / gridRange
-    drawGrid leftgutter + X * .5, topgutter + .5, width - leftgutter - X, height - topgutter - bottomgutter, gridRange - 1, 8
-    redraw.call @
+    #set event functions
+    {overFn, outFn} = do @defaultHoverFns
+    @events.hover.overFn = overFn
+    @events.hover.outFn = outFn
+    
+    for i in [0...gridRange]
+      oldX = x
+      oldY = y
+      y = @options.height - bottomgutter - Y * (activePrimaryYData[i] - min)
+      x = Math.round leftgutter + X * (i + .5)
 
-  # Public method: move chart to left
-  # It calls redraw. doesnt do much by itself.
-  prev = (dx) ->
-    if currPos is 0 then return
-    if not (+dx >= 0) then dx = 1
-    currPos = currPos - dx
-    redraw.call @
+      if i is 0
+        p = ["M", x, y, "C", x, y]
+        oldX2 = x
+        oldY2 = y
+        subPathLen = 0
+        pathLen = 0
+        subPathString = ""
+      if i isnt 0 and i < gridRange
+        Y0 = @options.height - bottomgutter - Y * (activePrimaryYData[i - 1] - min)
+        X0 = Math.round leftgutter + X * (i - .5)
+        if activePrimaryYData[i + 1]
+          Y2 = @options.height - bottomgutter - Y * (activePrimaryYData[i + 1] - min)
+          X2 = Math.round leftgutter + X * (i + 1.5)
+        else
+          Y2 = y
+          X2 = x
+        a = getAnchors X0, Y0, x, y, X2, Y2
+        if a.x2 and a.y2
+          p = p.concat [a.x1, a.y1, x, y, a.x2, a.y2]
+        else
+          p = p.concat [a.x1, a.y1, x, y]
 
-  # Public method: move chart to right
-  # It calls redraw. doesnt do much by itself.
-  next = (dx) ->
-    if currPos + range is data.length then return
-    if not (+dx >= 0) then dx = 1
-    currPos = currPos + dx
-    redraw.call @
+        oldSubPathString = subPathString
+        subPathString = ["M", oldX, oldY, "C", oldX2, oldY2, a.x1, a.y1, x, y].join ","
+        oldSubPathLen = subPathLen
+        subPathLen = Raphael.getTotalLength subPathString
+        pathString = oldSubPathString + subPathString
+        pathLen = oldSubPathLen + subPathLen
+        rectPath = Raphael.getSubpath pathString, pathLen - subPathLen - oldSubPathLen / 2, pathLen - subPathLen / 2
+        
+        lineRect = @paper.path rectPath
+        lineRect.attr bpAttr
 
-  # Return an object with public methods and variables
-  # If new public methods/variables need to be published add them here.
-  {paper: r, draw, prev, next, toString, reSize, setMessage, hover}
+        @chartProps.pBlanket.push lineRect
+        pBlanketLength = @chartProps.pBlanket.length
+      
+        attachHover.call @, lineRect, pBlanketLength - 1, @events.hover.overFn, @events.hover.outFn, @chartProps.pDots, @chartProps.pBlanket, activeXData, activePrimaryYData
 
+        oldX2 = a.x2
+        oldY2 = a.y2
+
+      @chartProps.pDots.push @paper.circle(x, y, 4).attr dotAttr
+      @chartProps.xLabels.push (@paper.text x, @options.height - 25, labels[i]).attr(txt).toBack().rotate 90
+      
+    rectPath = Raphael.getSubpath pathString, pathLen - subPathLen / 2, pathLen
+    lineRect = @paper.path rectPath
+    lineRect.attr bpAttr
+
+    @chartProps.pBlanket.push lineRect
+    pBlanketLength = @chartProps.pBlanket.length
+    attachHover.call @, lineRect, pBlanketLength - 1, @events.hover.overFn, @events.hover.outFn, @chartProps.pDots, @chartProps.pBlanket, activeXData, activePrimaryYData
+
+    @chartProps.primaryPath.attr path: p
+    do @chartProps.pBlanket.toFront
+    @

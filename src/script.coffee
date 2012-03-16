@@ -1,140 +1,119 @@
-jQuery ->
-  scrips = []
-  configfiidii = holder: "chartholder", height: 550
-  fiidiigraph = bgraph configfiidii
-  r       =   fiidiigraph.paper
-  label   =   do r.set
-  label_visible = false
-  leave_timer = 0
-  months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+sortedFiiData = null
+sortedDiiData = null
+sortedFiiDiiData = null
+sortedNiftyData = null
+sortedCurrData = null
+loadGraph = new BGraph holder: "chartcontent", height: 500, type: "l"
+loadGraph.setMessage "Loading..."
+
+prepareData = (rawData, dateField) ->
+  dateDiff = (a, b) ->
+    aArray = a[dateField].split "-"
+    bArray = b[dateField].split "-"
+    aDate = new Date aArray[0], aArray[1] - 1, aArray[2]
+    bDate = new Date bArray[0], bArray[1] - 1, bArray[2]
+    aDate - bDate
+  
+  sortedData = rawData.sort dateDiff
+
+toRound = (value) ->
+  return (Math.round(value * 100) / 100).toFixed 2
+
+$.getJSON '/tools/fiidii/serverscripts/fiidii.php', (response) ->
   txt         =
     font         : '12px Helvetica, Arial', "font-weight": "bold"
-    fill         : "#db2129"
+    fill         : "#3C60A4"
   txt1        =
     font         : '10px Helvetica, Arial'
     fill         : "#666"
+  months         =  ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+  
+  loadGraph.setHoverLabels null, '#{y} thousand crores'
+  sortedData = prepareData response.d, "x"
+  loadGraph.setData sortedData, "x", "y"
+  
+  sortedCurrData = prepareData response.c, "x"
+  #Load currency values
+  latestRates = sortedCurrData.slice(-1)[0]
+  ($ "#usd").html latestRates.u
+  ($ "#gbp").html latestRates.g
+  ($ "#euro").html latestRates.e
+  ($ "#yen").html latestRates.y
 
-  label.push (r.text 60, 12, "Rs.").attr txt
-  label.push (r.text 60, 27, "date").attr txt1
-  do label.hide
-  frame = (r.popup 100, 100, label, "right").attr(fill: "#fff", stroke: "#db2129", "stroke-width": 1, "fill-opacity": 1).hide()
+  ($ "#fiibuy").html response.fb
+  ($ "#fiisell").html response.fs
+  fiinet = toRound response.fb - response.fs
+  ($ "#fiinet").html fiinet
+  if fiinet < 0 then ($ "#fiinet").addClass "red"
 
-  getScrips = (defaultScrip) ->
-    $.ajax
-      type: "GET"
-      url: "/serverscripts/getScrips.php"
-      dataType: "json"
-      success: (response) ->
-        scrips = response.scrips
-        scripList = ($ "#searchterm").autocomplete
-          minLength: 3
-          delay: 100
-          source: (req, res) ->
-            srchExp = new RegExp "^" + req.term + ".*", "i"
-            matches = []
-            for scrip in scrips
-              if (scrip.value.search srchExp) >= 0 or (scrip.label.search srchExp) >= 0
-                matches.push scrip
-            res matches
+  ($ "#diibuy").html response.db
+  ($ "#diisell").html response.ds
+  diinet = toRound response.db - response.ds
+  ($ "#diinet").html diinet
+  if diinet < 0 then ($ "#diinet").addClass "red"
 
-          focus: (event, ui) ->
-            ($ "#searchterm").val ui.item.value
-            false
-          select: (event, ui) ->
-            ($ "#searchterm").val ui.item.value
-            false
-        scripList.data("autocomplete")._renderItem = ( ul, item ) ->
-          ($ "<li></li>").data("item.autocomplete", item).append("<a>" + item.label + "<br><span class=\"ui-item-symbol\">" + item.value + "</span></a>").appendTo ul
+  fiidiibuy = toRound 1 * response.fb + 1 * response.db
+  fiidiisell = toRound 1 * response.fs + 1 * response.ds
+  ($ "#fiidiibuy").html fiidiibuy
+  ($ "#fiidiisell").html fiidiisell
+  fiidiinet = toRound fiidiibuy - fiidiisell
+  ($ "#fiidiinet").html fiidiinet
+  if fiidiinet < 0 then ($ "#fiidiinet").addClass "red"
+  
+  ($ "#tdspan").html response.t
 
-        if defaultScrip? then getCandles defaultScrip
+  loadGraph.draw false
 
-  getCandles = (scrip) ->
-    $.ajax
-      type: "GET"
-      url: "/serverscripts/candles.php"
-      data: {scrip: scrip}
-      dataType: "json"
-      beforeSend: ->
-        fiidiigraph.setMessage "Loading " + scrip
-      success: (response) ->
-        dates   =   []
-        data    =   []
+  ##Add click handlers
+  $("#charttypefrm").submit (eventObj) ->
+    charttype = $("#charttypebox").val()
+    chartrange = 0 - $("#chartrangebox").val() || undefined
+    switch charttype
+      when "fii"
+        loadGraph.setHoverLabels null, '#{y} thousand crores'
+        if not sortedFiiData
+          sortedFiiData = prepareData response.d, "x"
+        loadGraph.setData sortedFiiData, "x", "f", "fii"
+        ($ "#chartname").html "FII investment chart"
+        ($ "#charthelp").html "Data is in thousand crore ( 10 billion ) indian Rupees."
 
-        for own key, val of response.data
-          dates.unshift val.date
-          data.unshift  o: +val.o, h: +val.h, l: +val.l, c: +val.c
+      when "dii"
+        loadGraph.setHoverLabels null, '#{y} thousand crores'
+        if not sortedDiiData
+          sortedDiiData = prepareData response.d, "x"
+        loadGraph.setData sortedDiiData, "x", "d", "dii"
+        ($ "#chartname").html "DII investment chart"
+        ($ "#charthelp").html "Data is in thousand crore ( 10 billion ) indian Rupees."
 
-        fiidiioptions =
-          data      :  data
-          dates     :  dates
-          xtext     :  "dates"
-          ytext     :  "Rs."
-          type      :  "c"
-          color     :  "#db2129"
+      when "fiidii"
+        loadGraph.setHoverLabels null, '#{y} thousand crores'
+        if not sortedFiiDiiData
+          sortedFiiDiiData = prepareData response.d, "x"
+        loadGraph.setData sortedFiiDiiData, "x", "y", "fiidii"
+        ($ "#chartname").html "FII + DII investment chart"
+        ($ "#charthelp").html "Data is in thousand crore ( 10 billion ) indian Rupees."
 
-        fiidiigraph.hover (rect, dot, data, date) ->
-          rect.attr opacity: 0.04
-          ###
-          clearTimeout leave_timer
-          label[0].attr text: data.c + " " + "Rs."
-          label[1].attr text: do date.getDate + "-" + months[do date.getMonth]
-          side = "right"
-          side = "left"  if (dot.attr "cx") + frame.getBBox().width > r.width
-          ppp = r.popup (dot.attr "cx"), (dot.attr "cy"), label, side, 1
-          frame.show().stop().animate {path: ppp.path}, 200 * label_visible
-          label.show().stop().animateWith frame, {translation: [ppp.dx, ppp.dy]}, 200 * label_visible
-          dot.attr "r", 6
-          label_visible = true
-          do frame.toFront
-          do label.toFront
-          ###
-        ,(rect, dot, data, date) ->
-          rect.attr opacity: 0
-          ###
-          dot.attr "r", 4
-          leave_timer = setTimeout ->
-                        do frame.hide
-                        do label.hide
-                        label_visible = false
-                    ,   1
-          ###
-        if fiidiigraph.draw fiidiioptions
-          do frame.toFront
-          do label.toFront
-          scripName = ""
-          for scripObj in scrips
-            if scripObj.value is do scrip.toUpperCase
-              scripName = scripObj.label
+      when "nifty"
+        loadGraph.setHoverLabels null, '#{y}'
+        if not sortedNiftyData
+          sortedNiftyData = prepareData response.i, "x"
+        loadGraph.setData sortedNiftyData, "x", "y", "nifty"
+        ($ "#chartname").html "Nifty index chart"
+        ($ "#charthelp").html "Data is NSE Nifty index value."
 
-          ($ "#scripname").html scripName
-          ($ document).keydown (e) ->
-            if e.keyCode is 37
-              do fiidiigraph.prev
-              return false
-
-            if e.keyCode is 39
-              do fiidiigraph.next
-              return false
-            return true
-
-          ($ window).resize ->
-            do fiidiigraph.reSize
-        else
-          ($ "#scripname").html ""
-
-        true
-      failure: (response) ->
-    true
-  submitFrm = ->
-    scripSymbol = do ($ "#searchterm").val
-    if scripSymbol
-      getCandles scripSymbol
-    true
-
-  ($ "#searchbtn").click submitFrm
-  ($ '#searchterm').keydown (event) ->
-    if event.keyCode is 13
-      do submitFrm
-
-  getScrips "NIFTY"
-
+      when "curr"
+        loadGraph.setHoverLabels null, '#{y} Rupees = 1 USD'
+        loadGraph.setData sortedCurrData, "x", "u", "curr"
+        ($ "#chartname").html "US $ currency chart"
+        ($ "#charthelp").html "Data is in Indian Rupees per USA dollar."
+        
+    if chartrange
+      loadGraph.draw false, chartrange
+    else
+      loadGraph.draw false
+    false
+  
+  ($ "#twitterfollow").click (eventObj) ->
+    do eventObj.preventDefault
+    do eventObj.stopPropagation
+    return false
